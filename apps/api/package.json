@@ -18,6 +18,7 @@
     "@rideshare/database": "*",
     "@rideshare/logging": "*",
     "@rideshare/maps": "*",
+    "@rideshare/pricing": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",
     "cors": "^2.8.6",

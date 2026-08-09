@@ -9,3 +9,8 @@ export function formatDurationMinutes(durationSeconds: number): string {
   const minutes = Math.max(1, Math.round(durationSeconds / 60));
   return minutes === 1 ? '1 min' : `${minutes} min`;
 }
+
+/** cents is always an integer (section 10) — this only formats for display, never computes. */
+export function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}

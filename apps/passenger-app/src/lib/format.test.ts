@@ -1,4 +1,4 @@
-import { formatDistanceMiles, formatDurationMinutes } from './format';
+import { formatCents, formatDistanceMiles, formatDurationMinutes } from './format';
 
 describe('formatDistanceMiles', () => {
   it('converts meters to miles with one decimal place', () => {
@@ -20,5 +20,21 @@ describe('formatDurationMinutes', () => {
 
   it('uses singular "min" for exactly one minute', () => {
     expect(formatDurationMinutes(60)).toBe('1 min');
+  });
+});
+
+describe('formatCents', () => {
+  it('formats whole-dollar cent amounts with two decimal places', () => {
+    expect(formatCents(500)).toBe('$5.00');
+    expect(formatCents(100)).toBe('$1.00');
+  });
+
+  it('formats non-whole-dollar cent amounts', () => {
+    expect(formatCents(865)).toBe('$8.65');
+    expect(formatCents(173)).toBe('$1.73');
+  });
+
+  it('formats zero cents', () => {
+    expect(formatCents(0)).toBe('$0.00');
   });
 });

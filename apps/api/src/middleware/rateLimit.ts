@@ -53,3 +53,9 @@ export const routePreviewLimiter = createLimiter({
   max: 30,
   message: 'Too many route preview requests. Try again in a moment.',
 });
+
+export const pricingEstimateLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many fare estimate requests. Try again in a moment.',
+});

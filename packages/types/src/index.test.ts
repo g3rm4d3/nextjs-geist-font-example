@@ -3,6 +3,7 @@ import type {
   ApiErrorResponse,
   ApiSuccessResponse,
   AuthResponse,
+  FareEstimate,
   HealthCheckResponse,
 } from './index';
 
@@ -52,5 +53,24 @@ describe('shared API types', () => {
 
     expect(response.user.role).toBe('PASSENGER');
     expect(response.tokens.accessTokenExpiresInSeconds).toBe(900);
+  });
+
+  it('accepts a well-formed fare estimate', () => {
+    const estimate: FareEstimate = {
+      baseFareCents: 250,
+      distanceFareCents: 750,
+      timeFareCents: 250,
+      bookingFeeCents: 200,
+      subtotalCents: 1450,
+      minimumFareCents: 500,
+      minimumFareApplied: false,
+      totalCents: 1450,
+      platformCommissionCents: 290,
+      driverEarningsCents: 1160,
+    };
+
+    expect(estimate.platformCommissionCents + estimate.driverEarningsCents).toBe(
+      estimate.totalCents,
+    );
   });
 });
