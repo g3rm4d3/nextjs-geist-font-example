@@ -1,5 +1,8 @@
 # Database — Phase 1 (Database Foundation)
 
+> Extended in Phase 2 with `sessions` and `password_reset_tokens` — see
+> [`docs/authentication.md`](authentication.md) for how those are used.
+
 PostgreSQL schema for the rideshare platform, managed with
 [Drizzle ORM](https://orm.drizzle.team) + `drizzle-kit`. Schema lives in
 `packages/database/src/schema/*`; generated SQL migrations live in
@@ -55,6 +58,8 @@ erDiagram
     users ||--o{ support_tickets : opens
     support_tickets ||--o{ support_messages : contains
     users ||--o{ audit_logs : "acted as"
+    users ||--o{ sessions : "refresh tokens"
+    users ||--o{ password_reset_tokens : "reset tokens"
 ```
 
 `promo_codes`, `system_settings`, and `pricing_configs` stand alone (no
@@ -83,6 +88,8 @@ inbound FKs yet) — see "Deferred logic" below.
 | `audit_logs` | Append-only sensitive-action log | `before`/`after` jsonb snapshots |
 | `system_settings` | Admin-editable key/value config | unique `key` |
 | `pricing_configs` | Table only — see below | **at most one `active = true` row** (partial unique index) |
+| `sessions` | One row per issued refresh token (Phase 2) | unique `refresh_token_hash` (SHA-256 of the token — the raw token is never stored); `revoked_at` implements logout and refresh-token rotation |
+| `password_reset_tokens` | One row per requested password reset (Phase 2) | unique `token_hash` (SHA-256, raw token never stored); `used_at` makes a token single-use |
 
 All primary keys are `uuid DEFAULT gen_random_uuid()` (native in Postgres
 13+, no extension required). Every table has `created_at`; most have

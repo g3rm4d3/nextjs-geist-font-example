@@ -17,3 +17,5 @@ export * from './promoCodes';
 export * from './auditLogs';
 export * from './systemSettings';
 export * from './pricingConfigs';
+export * from './sessions';
+export * from './passwordResetTokens';

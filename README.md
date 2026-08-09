@@ -39,6 +39,8 @@ the API is authoritative for all of that.
   /config          Shared TypeScript + ESLint base configuration
   /logging         Shared structured logger (pino, with redaction)
   /database        PostgreSQL schema (Drizzle ORM), migrations, seed/reset scripts
+  /auth            Shared password hashing (bcrypt)
+  /validation      Shared Zod request-payload schemas
 
 /docs              Architecture and process documentation
 /scripts           (reserved for future tooling — e.g. the driver/ride simulator)
@@ -62,8 +64,7 @@ exists and how the apps are meant to evolve.
 npm install
 
 # 2. Build the shared packages once so apps can resolve their compiled output
-npm run build --workspace=packages/types
-npm run build --workspace=packages/logging
+npm run build:packages
 
 # 3. Create local development databases (adjust user/password to your setup)
 createdb rideshare_dev
@@ -76,7 +77,12 @@ cp apps/passenger-app/.env.example apps/passenger-app/.env
 cp apps/driver-app/.env.example apps/driver-app/.env
 cp packages/database/.env.example packages/database/.env
 
-# 5. Create the schema and fill it with fictional dev data
+# 5. Generate a real JWT signing secret for apps/api (the placeholder in
+#    .env.example is intentionally invalid — the API refuses to start
+#    with it) and put it in apps/api/.env as JWT_ACCESS_SECRET.
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+
+# 6. Create the schema and fill it with fictional dev data
 npm run db:migrate
 npm run db:seed
 ```
@@ -84,7 +90,9 @@ npm run db:seed
 Never commit `.env` / `.env.local` files — they're gitignored. Never put
 real secrets in a committed `.env.example`. See
 [`docs/database.md`](docs/database.md) for the full schema, entity
-relationships, and what `db:migrate` / `db:seed` / `db:reset` each do.
+relationships, and what `db:migrate` / `db:seed` / `db:reset` each do, and
+[`docs/authentication.md`](docs/authentication.md) for the auth/token
+design and how to provision a local admin account.
 
 ## Running each app independently
 
@@ -148,13 +156,18 @@ The mobile apps don't have a "build" step in Stage 1 (no native binaries are
 produced yet); `expo export --platform android` / `--platform ios` is used
 in CI/manual validation to confirm the JS bundle compiles cleanly.
 
-## Known limitations (Stage 1, through Phase 1)
+## Known limitations (Stage 1, through Phase 2)
 
 - The API's `/health` check only proves connectivity (`SELECT 1`), not that
   the schema is migrated — a fresh, unmigrated database still reports
-  `database.connected: true`. No route in `apps/api` reads/writes the
-  schema yet; that starts in Phase 2 (auth) and Phase 7 (ride requests).
-- No authentication yet — Phase 2.
+  `database.connected: true`.
+- Authentication is backend-only so far (see
+  [`docs/authentication.md`](docs/authentication.md) for the explicit
+  scoping decision) — no login/register screens exist in any client app
+  yet. Passenger/driver auth screens are Phase 3/5's job.
+- Password reset delivery returns the token directly in dev/test responses
+  rather than sending a real email — Phase 16 owns real notification
+  delivery.
 - Mobile apps render a static placeholder screen; no maps, ride flows, or
   navigation stack yet — Phases 3 and 5.
 - `npm audit` reports vulnerabilities inside Expo/Metro's own build-tooling

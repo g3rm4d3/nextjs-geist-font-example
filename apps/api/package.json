@@ -14,12 +14,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@rideshare/auth": "*",
+    "@rideshare/database": "*",
     "@rideshare/logging": "*",
     "@rideshare/types": "*",
+    "@rideshare/validation": "*",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
     "pino-http": "^11.0.0",
     "zod": "^4.4.3"
@@ -28,6 +33,7 @@
     "@rideshare/config": "*",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.15.6",
     "@types/supertest": "^6.0.3",

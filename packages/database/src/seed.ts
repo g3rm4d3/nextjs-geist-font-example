@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { hashPassword } from '@rideshare/auth';
 import { sql } from 'drizzle-orm';
 import { createDbClient, type Database } from './client';
 import { createScriptPool } from './pool';
@@ -44,12 +45,40 @@ async function main(): Promise<void> {
     SeededDriver & { vehicleId: string }
   >;
   await seedRides(db, passengers, approvedDrivers);
+  const adminsSeeded = await seedAdmins(db);
 
   console.log(
-    `Done: ${PASSENGER_COUNT} passengers, ${DRIVER_COUNT} drivers, ${DRIVER_COUNT} vehicles, sample rides.`,
+    `Done: ${PASSENGER_COUNT} passengers, ${DRIVER_COUNT} drivers, ${DRIVER_COUNT} vehicles, ` +
+      `sample rides, ${adminsSeeded} admin account(s).`,
   );
 
   await pool.end();
+}
+
+/**
+ * Admin accounts are only ever created here if SEED_ADMIN_PASSWORD is set
+ * — never with a hardcoded password (section 7). There is deliberately no
+ * public admin registration endpoint (section 8), so this is the one
+ * sanctioned way to get a first admin account for local development;
+ * production admin provisioning is out of scope for Stage 1
+ * [PRODUCTION PAYMENT APPROVAL REQUIRED]-style items are tracked
+ * separately in the docs, not reused here.
+ */
+async function seedAdmins(db: Database): Promise<number> {
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.log('SEED_ADMIN_PASSWORD not set — skipping admin account seeding.');
+    return 0;
+  }
+
+  const passwordHash = await hashPassword(adminPassword);
+
+  await db.insert(schema.users).values([
+    { email: 'super.admin@example-dev.test', passwordHash, role: 'SUPER_ADMIN' },
+    { email: 'admin@example-dev.test', passwordHash, role: 'ADMIN' },
+  ]);
+
+  return 2;
 }
 
 async function assertDatabaseIsEmpty(db: Database): Promise<void> {

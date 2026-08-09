@@ -1,0 +1,26 @@
+{
+  "name": "@rideshare/auth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared password hashing used by apps/api (runtime) and packages/database's dev seed script, so both hash passwords identically.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0"
+  },
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^26.2.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

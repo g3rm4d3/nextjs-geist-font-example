@@ -77,6 +77,12 @@ server-side role checks for exactly this reason.
                     service reuses it instead of re-implementing logging.
   /database        PostgreSQL schema (Drizzle ORM), migrations, and
                     dev seed/reset scripts (Phase 1). See docs/database.md.
+  /auth            Shared password hashing (bcrypt) used by apps/api and
+                    packages/database's seed script, so both hash
+                    passwords identically (Phase 2).
+  /validation      Shared Zod request-payload schemas. apps/api runs
+                    these server-side as the authoritative check; client
+                    apps may reuse them for form UX only (Phase 2).
 ```
 
 Per the engineering spec, packages are only extracted when there's a

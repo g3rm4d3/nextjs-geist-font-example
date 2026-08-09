@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { ApiErrorResponse, ApiSuccessResponse, HealthCheckResponse } from './index';
+import type {
+  ApiErrorResponse,
+  ApiSuccessResponse,
+  AuthResponse,
+  HealthCheckResponse,
+} from './index';
 
 describe('shared API types', () => {
   it('accepts a well-formed success envelope', () => {
@@ -33,5 +38,19 @@ describe('shared API types', () => {
     };
 
     expect(health.status).toBe('ok');
+  });
+
+  it('accepts a well-formed auth response', () => {
+    const response: AuthResponse = {
+      user: { id: 'usr_1', email: 'jane@example.com', role: 'PASSENGER', isActive: true },
+      tokens: {
+        accessToken: 'a.b.c',
+        refreshToken: 'opaque-token',
+        accessTokenExpiresInSeconds: 900,
+      },
+    };
+
+    expect(response.user.role).toBe('PASSENGER');
+    expect(response.tokens.accessTokenExpiresInSeconds).toBe(900);
   });
 });

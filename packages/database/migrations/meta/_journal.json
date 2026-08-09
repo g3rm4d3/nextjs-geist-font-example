@@ -8,6 +8,13 @@
       "when": 1786245180674,
       "tag": "0000_core_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786246377489,
+      "tag": "0001_sessions_and_password_resets",
+      "breakpoints": true
     }
   ]
 }

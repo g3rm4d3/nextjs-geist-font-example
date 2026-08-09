@@ -6,7 +6,11 @@ import { env } from './config/env';
 import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
+import { adminRouter } from './routes/admin';
+import { authRouter } from './routes/auth';
+import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
+import { passengersRouter } from './routes/passengers';
 
 /**
  * Builds the Express application without starting a listener, so tests can
@@ -29,6 +33,10 @@ export function createApp(): Express {
   );
 
   app.use(healthRouter);
+  app.use(authRouter);
+  app.use(passengersRouter);
+  app.use(driversRouter);
+  app.use(adminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,0 +1,24 @@
+{
+  "name": "@rideshare/validation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Zod schemas for request payloads. Authoritative validation always happens server-side in apps/api; client apps may reuse these schemas for form UX, never as a substitute for the server check.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

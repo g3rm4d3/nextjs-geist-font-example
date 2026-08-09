@@ -21,6 +21,16 @@ const envSchema = z.object({
     }),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
+
+  // Signs short-lived access tokens (JWT, HS256). Refresh tokens are
+  // opaque random values, not JWTs, so they need no secret of their own —
+  // see src/lib/tokens.ts.
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters — generate a real random secret'),
+  JWT_ACCESS_TOKEN_TTL: z.string().default('15m'),
+  JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
