@@ -1,4 +1,4 @@
-import { ApiClientError, login, previewRoute } from './apiClient';
+import { ApiClientError, createRideRequest, login, previewRoute } from './apiClient';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -69,6 +69,39 @@ describe('apiClient', () => {
       expect.stringContaining('/routes/preview'),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('POSTs a ride request with the idempotency key in the body', async () => {
+    const mockRide = {
+      id: 'ride_1',
+      status: 'SEARCHING_DRIVER',
+      pickup: { coordinate: { latitude: 0, longitude: 0 }, label: 'Home' },
+      destination: { coordinate: { latitude: 1, longitude: 1 }, label: 'Work' },
+      estimatedDistanceMeters: 1000,
+      estimatedDurationSeconds: 120,
+      estimatedFareCents: 865,
+      requestedAt: new Date().toISOString(),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockRide, requestId: 'req_4' }),
+    }) as unknown as typeof fetch;
+
+    const input = {
+      pickup: { coordinate: { latitude: 0, longitude: 0 }, label: 'Home' },
+      destination: { coordinate: { latitude: 1, longitude: 1 }, label: 'Work' },
+      idempotencyKey: 'idem-key-1',
+    };
+    const result = await createRideRequest('token-123', input);
+
+    expect(result).toEqual(mockRide);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rides'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify(input),
       }),
     );
   });

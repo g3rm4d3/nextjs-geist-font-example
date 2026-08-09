@@ -3,11 +3,13 @@ import type {
   ApiErrorResponse,
   ApiSuccessResponse,
   AuthResponse,
+  CreateRideRequest,
   DriverProfileSummary,
   FareEstimate,
   FleetDriverLocation,
   HealthCheckResponse,
   RecordLocationResult,
+  Ride,
 } from './index';
 
 describe('shared API types', () => {
@@ -141,5 +143,32 @@ describe('shared API types', () => {
     };
 
     expect(entry.availabilityStatus).toBe('ONLINE');
+  });
+
+  it('accepts a well-formed create-ride request with no fare field', () => {
+    const request: CreateRideRequest = {
+      pickup: { coordinate: { latitude: 40.7128, longitude: -74.006 }, label: 'Home' },
+      destination: { coordinate: { latitude: 40.73, longitude: -73.9925 }, label: 'Work' },
+      idempotencyKey: 'idem_1',
+    };
+
+    expect(request.idempotencyKey).toBe('idem_1');
+    // @ts-expect-error -- a fare must never be part of this request shape (section 3).
+    expect(request.estimatedFareCents).toBeUndefined();
+  });
+
+  it('accepts a well-formed ride', () => {
+    const ride: Ride = {
+      id: 'ride_1',
+      status: 'SEARCHING_DRIVER',
+      pickup: { coordinate: { latitude: 40.7128, longitude: -74.006 }, label: 'Home' },
+      destination: { coordinate: { latitude: 40.73, longitude: -73.9925 }, label: 'Work' },
+      estimatedDistanceMeters: 5000,
+      estimatedDurationSeconds: 900,
+      estimatedFareCents: 1450,
+      requestedAt: new Date().toISOString(),
+    };
+
+    expect(ride.status).toBe('SEARCHING_DRIVER');
   });
 });

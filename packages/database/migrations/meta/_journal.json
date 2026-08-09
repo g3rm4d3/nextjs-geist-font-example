@@ -15,6 +15,13 @@
       "when": 1786246377489,
       "tag": "0001_sessions_and_password_resets",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786315122728,
+      "tag": "0002_ride_idempotency",
+      "breakpoints": true
     }
   ]
 }

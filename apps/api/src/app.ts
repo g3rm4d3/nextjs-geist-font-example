@@ -12,6 +12,7 @@ import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
 import { passengersRouter } from './routes/passengers';
 import { pricingRouter } from './routes/pricing';
+import { ridesRouter } from './routes/rides';
 import { routePreviewRouter } from './routes/routePreview';
 
 /**
@@ -41,6 +42,7 @@ export function createApp(): Express {
   app.use(adminRouter);
   app.use(routePreviewRouter);
   app.use(pricingRouter);
+  app.use(ridesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

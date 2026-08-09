@@ -266,6 +266,7 @@ describe('ratings', () => {
       .insert(schema.rides)
       .values({
         passengerId: passengerProfile.id,
+        idempotencyKey: crypto.randomUUID(),
         pickupAddress: '1 Main St',
         pickupLat: 0,
         pickupLng: 0,
@@ -308,6 +309,7 @@ describe('ratings', () => {
       .insert(schema.rides)
       .values({
         passengerId: passengerProfile.id,
+        idempotencyKey: crypto.randomUUID(),
         pickupAddress: '1 Main St',
         pickupLat: 0,
         pickupLng: 0,
@@ -357,6 +359,7 @@ describe('driver_earnings', () => {
       .values({
         passengerId: passengerProfile.id,
         driverId: driverProfile.id,
+        idempotencyKey: crypto.randomUUID(),
         pickupAddress: '1 Main St',
         pickupLat: 0,
         pickupLng: 0,
@@ -393,6 +396,7 @@ describe('rides', () => {
     await expectPgError(
       db.insert(schema.rides).values({
         passengerId: passengerProfile.id,
+        idempotencyKey: crypto.randomUUID(),
         pickupAddress: '1 Main St',
         pickupLat: 999,
         pickupLng: 0,
@@ -427,6 +431,7 @@ describe('rides', () => {
     await db.insert(schema.rides).values({
       passengerId: passengerProfile.id,
       driverId: driverProfile.id,
+      idempotencyKey: crypto.randomUUID(),
       pickupAddress: '1 Main St',
       pickupLat: 0,
       pickupLng: 0,
@@ -439,5 +444,114 @@ describe('rides', () => {
       db.delete(schema.driverProfiles).where(eq(schema.driverProfiles.id, driverProfile.id)),
       'rides_driver_id_driver_profiles_id_fk',
     );
+  });
+
+  it('rejects a second ride with the same (passenger, idempotency key)', async () => {
+    const passenger = await insertUser({ email: 'passenger6@example-dev.test', role: 'PASSENGER' });
+    const [passengerProfile] = await db
+      .insert(schema.passengerProfiles)
+      .values({ userId: passenger.id, firstName: 'P', lastName: 'Seven' })
+      .returning();
+    if (!passengerProfile) throw new Error('insert failed');
+    const idempotencyKey = crypto.randomUUID();
+
+    await db.insert(schema.rides).values({
+      passengerId: passengerProfile.id,
+      idempotencyKey,
+      pickupAddress: '1 Main St',
+      pickupLat: 0,
+      pickupLng: 0,
+      destinationAddress: '2 Main St',
+      destinationLat: 0,
+      destinationLng: 0,
+      status: 'COMPLETED', // terminal, so this doesn't also trip the one-active-ride constraint
+    });
+
+    await expectPgError(
+      db.insert(schema.rides).values({
+        passengerId: passengerProfile.id,
+        idempotencyKey,
+        pickupAddress: '3 Main St',
+        pickupLat: 0,
+        pickupLng: 0,
+        destinationAddress: '4 Main St',
+        destinationLat: 0,
+        destinationLng: 0,
+      }),
+      'rides_passenger_idempotency_key_key',
+    );
+  });
+
+  it('rejects a second active ride for a passenger who already has one (Phase 7)', async () => {
+    const passenger = await insertUser({ email: 'passenger7@example-dev.test', role: 'PASSENGER' });
+    const [passengerProfile] = await db
+      .insert(schema.passengerProfiles)
+      .values({ userId: passenger.id, firstName: 'P', lastName: 'Eight' })
+      .returning();
+    if (!passengerProfile) throw new Error('insert failed');
+
+    await db.insert(schema.rides).values({
+      passengerId: passengerProfile.id,
+      idempotencyKey: crypto.randomUUID(),
+      pickupAddress: '1 Main St',
+      pickupLat: 0,
+      pickupLng: 0,
+      destinationAddress: '2 Main St',
+      destinationLat: 0,
+      destinationLng: 0,
+      status: 'SEARCHING_DRIVER',
+    });
+
+    await expectPgError(
+      db.insert(schema.rides).values({
+        passengerId: passengerProfile.id,
+        idempotencyKey: crypto.randomUUID(),
+        pickupAddress: '3 Main St',
+        pickupLat: 0,
+        pickupLng: 0,
+        destinationAddress: '4 Main St',
+        destinationLat: 0,
+        destinationLng: 0,
+        status: 'REQUESTED',
+      }),
+      'rides_one_active_per_passenger_key',
+    );
+  });
+
+  it('allows a new active ride once the previous one is terminal', async () => {
+    const passenger = await insertUser({ email: 'passenger8@example-dev.test', role: 'PASSENGER' });
+    const [passengerProfile] = await db
+      .insert(schema.passengerProfiles)
+      .values({ userId: passenger.id, firstName: 'P', lastName: 'Nine' })
+      .returning();
+    if (!passengerProfile) throw new Error('insert failed');
+
+    await db.insert(schema.rides).values({
+      passengerId: passengerProfile.id,
+      idempotencyKey: crypto.randomUUID(),
+      pickupAddress: '1 Main St',
+      pickupLat: 0,
+      pickupLng: 0,
+      destinationAddress: '2 Main St',
+      destinationLat: 0,
+      destinationLng: 0,
+      status: 'CANCELLED_BY_PASSENGER',
+      cancelledAt: new Date(),
+      cancelledBy: 'PASSENGER',
+    });
+
+    await expect(
+      db.insert(schema.rides).values({
+        passengerId: passengerProfile.id,
+        idempotencyKey: crypto.randomUUID(),
+        pickupAddress: '3 Main St',
+        pickupLat: 0,
+        pickupLng: 0,
+        destinationAddress: '4 Main St',
+        destinationLat: 0,
+        destinationLng: 0,
+        status: 'REQUESTED',
+      }),
+    ).resolves.toBeDefined();
   });
 });

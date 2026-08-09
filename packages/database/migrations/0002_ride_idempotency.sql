@@ -1,0 +1,3 @@
+ALTER TABLE "rides" ADD COLUMN "idempotency_key" text NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "rides_passenger_idempotency_key_key" ON "rides" USING btree ("passenger_id","idempotency_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "rides_one_active_per_passenger_key" ON "rides" USING btree ("passenger_id") WHERE "rides"."status" IN ('REQUESTED', 'SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'PASSENGER_ONBOARD', 'IN_PROGRESS');

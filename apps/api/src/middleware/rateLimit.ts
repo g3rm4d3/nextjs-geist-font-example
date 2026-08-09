@@ -100,3 +100,15 @@ export const locationPingLimiter = createLimiter({
   message: 'Too many location updates. Try again in a moment.',
   keyGenerator: locationPingKeyGenerator,
 });
+
+// Section 7: idempotency + the one-active-ride constraint are what
+// actually prevent duplicate rides; this is just an outer backstop
+// against a client hammering the endpoint. Keyed per passenger for the
+// same reason as locationPingLimiter above — this always sits behind
+// requireAuth, and IP is the wrong dimension for a per-passenger action.
+export const rideRequestLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 20,
+  message: 'Too many ride requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

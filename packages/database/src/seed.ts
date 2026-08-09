@@ -280,14 +280,24 @@ function jitterCoordinate(base: number): number {
   return base + faker.number.float({ min: -0.05, max: 0.05, fractionDigits: 6 });
 }
 
-const RIDE_PLAN: ReadonlyArray<(typeof schema.rideStatusEnum.enumValues)[number]> = [
+const TERMINAL_RIDE_PLAN: ReadonlyArray<(typeof schema.rideStatusEnum.enumValues)[number]> = [
   ...Array.from({ length: 25 }, () => 'COMPLETED' as const),
   ...Array.from({ length: 5 }, () => 'CANCELLED_BY_PASSENGER' as const),
   ...Array.from({ length: 3 }, () => 'CANCELLED_BY_DRIVER' as const),
+];
+
+// A passenger's ride history can have any number of terminal (completed/
+// cancelled) rides, but — per rides_one_active_per_passenger_key (Phase
+// 7) — at most one *active* (non-terminal) one at a time. There are
+// PASSENGER_COUNT (10) passengers and this plan has 7 active-status
+// entries, so each gets assigned to its own passenger below rather than
+// picked at random like the terminal ones are.
+const ACTIVE_RIDE_PLAN: ReadonlyArray<(typeof schema.rideStatusEnum.enumValues)[number]> = [
   'DRIVER_ASSIGNED',
   'DRIVER_EN_ROUTE',
   'IN_PROGRESS',
-  ...Array.from({ length: 2 }, () => 'REQUESTED' as const),
+  'REQUESTED',
+  'REQUESTED',
   'SEARCHING_DRIVER',
   'SEARCHING_DRIVER',
 ];
@@ -299,15 +309,36 @@ async function seedRides(
 ): Promise<void> {
   const driverRideCounts = new Map<string, number>();
   const driverRatingTotals = new Map<string, { sum: number; count: number }>();
+  let rideIndex = 0;
 
-  for (const [rideIndex, status] of RIDE_PLAN.entries()) {
-    const passenger = faker.helpers.arrayElement(passengers);
+  const shuffledPassengers = faker.helpers.shuffle([...passengers]);
+  for (const [planIndex, status] of ACTIVE_RIDE_PLAN.entries()) {
+    const passenger = shuffledPassengers[planIndex % shuffledPassengers.length];
+    if (!passenger) throw new Error('Ran out of passengers while seeding active rides');
     const needsDriver = status !== 'REQUESTED' && status !== 'SEARCHING_DRIVER';
     const driver = needsDriver ? faker.helpers.arrayElement(approvedDrivers) : undefined;
 
     await seedOneRide(
       db,
-      rideIndex,
+      rideIndex++,
+      {
+        passengerUserId: passenger.userId,
+        passengerProfileId: passenger.profileId,
+        driver,
+        status,
+      },
+      driverRideCounts,
+      driverRatingTotals,
+    );
+  }
+
+  for (const status of TERMINAL_RIDE_PLAN) {
+    const passenger = faker.helpers.arrayElement(passengers);
+    const driver = faker.helpers.arrayElement(approvedDrivers);
+
+    await seedOneRide(
+      db,
+      rideIndex++,
       {
         passengerUserId: passenger.userId,
         passengerProfileId: passenger.profileId,
@@ -361,6 +392,10 @@ async function seedOneRide(
       driverId: input.driver?.profileId ?? null,
       vehicleId: input.driver?.vehicleId ?? null,
       status: input.status,
+      // A real client generates this once per request attempt (Phase 7);
+      // seed data has no client, so a fresh UUID per row is the
+      // equivalent — each seeded ride is its own "attempt".
+      idempotencyKey: faker.string.uuid(),
       pickupAddress: faker.location.streetAddress(),
       pickupLat,
       pickupLng,

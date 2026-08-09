@@ -1,6 +1,11 @@
-import type { ApiResponse, AuthResponse, AuthUser, FareEstimate } from '@rideshare/types';
+import type { ApiResponse, AuthResponse, AuthUser, FareEstimate, Ride } from '@rideshare/types';
 import type { RoutePreview } from '@rideshare/maps';
-import type { LoginInput, RegisterPassengerInput, RoutePreviewInput } from '@rideshare/validation';
+import type {
+  CreateRideRequestInput,
+  LoginInput,
+  RegisterPassengerInput,
+  RoutePreviewInput,
+} from '@rideshare/validation';
 import { env } from '../config/env';
 
 /**
@@ -71,4 +76,11 @@ export function getFareEstimate(
   input: RoutePreviewInput,
 ): Promise<FareEstimate> {
   return request<FareEstimate>('/pricing/estimate', { body: input, accessToken });
+}
+
+export function createRideRequest(
+  accessToken: string,
+  input: CreateRideRequestInput,
+): Promise<Ride> {
+  return request<Ride>('/rides', { body: input, accessToken });
 }
