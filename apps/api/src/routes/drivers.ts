@@ -1,12 +1,18 @@
-import type { DriverProfileSummary, Vehicle } from '@rideshare/types';
-import { updateAvailabilitySchema, upsertVehicleSchema } from '@rideshare/validation';
+import type { DriverProfileSummary, RecordLocationResult, Vehicle } from '@rideshare/types';
+import {
+  driverLocationPingSchema,
+  updateAvailabilitySchema,
+  upsertVehicleSchema,
+} from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { locationPingLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
 import { getMe } from '../services/authService';
 import * as driverService from '../services/driverService';
+import * as locationService from '../services/locationService';
 
 export const driversRouter = Router();
 
@@ -86,5 +92,30 @@ driversRouter.patch(
       req.body,
     );
     sendSuccess(req, res, profile);
+  },
+);
+
+/**
+ * Section 6/Phase 6: the core location-ingest endpoint. Validates the
+ * payload (@rideshare/validation's driverLocationPingSchema — lat/lng
+ * bounds plus optional heading/speed/accuracy/timestamp), then hands off
+ * to locationService, which is where staleness handling and the
+ * excessive-writes throttle actually live. Rate-limited independently of
+ * the throttle inside the service — see rateLimit.ts's comment on why
+ * both exist.
+ */
+driversRouter.post(
+  '/drivers/me/location',
+  requireAuth,
+  requireRole('DRIVER'),
+  locationPingLimiter,
+  validateBody(driverLocationPingSchema),
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const result: RecordLocationResult = await locationService.recordLocation(
+      req.auth.userId,
+      req.body,
+    );
+    sendSuccess(req, res, result);
   },
 );

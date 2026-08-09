@@ -1,4 +1,4 @@
-import { ApiClientError, login, setAvailability } from './apiClient';
+import { ApiClientError, login, reportLocation, setAvailability } from './apiClient';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -74,6 +74,40 @@ describe('apiClient', () => {
         method: 'PATCH',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
         body: JSON.stringify({ status: 'ONLINE' }),
+      }),
+    );
+  });
+
+  it('POSTs a location ping and resolves with written/location', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () =>
+        Promise.resolve({
+          success: true,
+          data: {
+            written: true,
+            location: {
+              latitude: 40.7128,
+              longitude: -74.006,
+              heading: 90,
+              speed: 5,
+              accuracy: 10,
+              recordedAt: '2026-01-01T00:00:00.000Z',
+              isStale: false,
+            },
+          },
+          requestId: 'req_4',
+        }),
+    }) as unknown as typeof fetch;
+
+    const result = await reportLocation('token-123', { latitude: 40.7128, longitude: -74.006 });
+
+    expect(result.written).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/drivers/me/location'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify({ latitude: 40.7128, longitude: -74.006 }),
       }),
     );
   });

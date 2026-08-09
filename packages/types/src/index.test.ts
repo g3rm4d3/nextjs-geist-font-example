@@ -5,7 +5,9 @@ import type {
   AuthResponse,
   DriverProfileSummary,
   FareEstimate,
+  FleetDriverLocation,
   HealthCheckResponse,
+  RecordLocationResult,
 } from './index';
 
 describe('shared API types', () => {
@@ -102,5 +104,42 @@ describe('shared API types', () => {
     };
 
     expect(summary.availabilityStatus).toBe('ONLINE');
+  });
+
+  it('accepts a well-formed record-location result, written or skipped', () => {
+    const written: RecordLocationResult = {
+      location: {
+        latitude: 40.7128,
+        longitude: -74.006,
+        heading: 180,
+        speed: 12.5,
+        accuracy: 8,
+        recordedAt: new Date().toISOString(),
+        isStale: false,
+      },
+      written: true,
+    };
+    const skipped: RecordLocationResult = { ...written, written: false };
+
+    expect(written.written).toBe(true);
+    expect(skipped.written).toBe(false);
+  });
+
+  it('accepts a well-formed fleet driver location', () => {
+    const entry: FleetDriverLocation = {
+      driverId: 'drv_1',
+      firstName: 'Dana',
+      lastName: 'Driver',
+      availabilityStatus: 'ONLINE',
+      latitude: 40.7128,
+      longitude: -74.006,
+      heading: null,
+      speed: null,
+      accuracy: null,
+      recordedAt: new Date().toISOString(),
+      isStale: false,
+    };
+
+    expect(entry.availabilityStatus).toBe('ONLINE');
   });
 });

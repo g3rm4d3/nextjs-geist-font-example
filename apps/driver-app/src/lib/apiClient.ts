@@ -3,9 +3,11 @@ import type {
   AuthResponse,
   AuthUser,
   DriverProfileSummary,
+  RecordLocationResult,
   Vehicle,
 } from '@rideshare/types';
 import type {
+  DriverLocationPingInput,
   LoginInput,
   RegisterDriverInput,
   UpdateAvailabilityInput,
@@ -93,4 +95,11 @@ export function setAvailability(
     body: input,
     accessToken,
   });
+}
+
+export function reportLocation(
+  accessToken: string,
+  input: DriverLocationPingInput,
+): Promise<RecordLocationResult> {
+  return request<RecordLocationResult>('/drivers/me/location', { body: input, accessToken });
 }

@@ -23,6 +23,7 @@
     "db:migrate": "npm run migrate --workspace=packages/database",
     "db:seed": "npm run seed --workspace=packages/database",
     "db:reset": "npm run reset --workspace=packages/database",
+    "simulate:drivers": "npm run simulate:drivers --workspace=apps/api",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

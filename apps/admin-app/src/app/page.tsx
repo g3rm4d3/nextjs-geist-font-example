@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { SystemStatusCard } from '@/components/SystemStatusCard';
 
 export default function DashboardPage() {
@@ -15,6 +16,17 @@ export default function DashboardPage() {
       </header>
 
       <SystemStatusCard />
+
+      <Link
+        href="/live-map"
+        className="mt-6 inline-block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
+      >
+        <span className="text-sm font-medium text-slate-500">Phase 6</span>
+        <p className="mt-1 font-semibold">Live fleet map →</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Watch virtual drivers move in real time. Requires an admin login.
+        </p>
+      </Link>
     </main>
   );
 }

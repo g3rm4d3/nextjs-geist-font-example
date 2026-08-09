@@ -1,14 +1,14 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { useAuth } from '../context/AuthContext';
 import { useDriverProfile } from '../context/DriverProfileContext';
-import { ApiClientError, setAvailability } from '../lib/apiClient';
+import { ApiClientError, reportLocation, setAvailability } from '../lib/apiClient';
 import {
   getLocationProvider,
-  type Coordinate,
   type LocationPermissionState,
+  type LocationSample,
 } from '../lib/locationProvider';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -30,18 +30,42 @@ const FALLBACK_REGION: Region = {
  * own model, a state a driver flips, not a place they navigate to.
  *
  * Position comes from lib/locationProvider — real GPS via expo-location,
- * or a configurable mock (EXPO_PUBLIC_MOCK_GPS) — satisfying "support
- * real GPS and configurable mock GPS during development". Nothing here
- * sends this position to the server yet; that's Phase 6 (Location
- * Infrastructure).
+ * or a configurable mock (EXPO_PUBLIC_MOCK_GPS). Phase 6 wires that
+ * position to the server: every sample from the same long-lived watch
+ * subscription that drives the map marker is also POSTed to
+ * /drivers/me/location, but only while the driver is actually ONLINE,
+ * permission is granted, and the app is foregrounded — see the
+ * `shouldReport` check below for how each of Phase 6's "handle: stale
+ * GPS / missing permissions / network interruption / background-
+ * foreground" cases maps to a concrete guard.
  */
 export function DriverHomeMapScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
   const { profile, setProfile } = useDriverProfile();
-  const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
+  const [sample, setSample] = useState<LocationSample | null>(null);
   const [permission, setPermission] = useState<LocationPermissionState | null>(null);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Refs mirror state the watchLocation callback below needs to read at
+  // call time — that callback is set up once (empty dependency array,
+  // since re-subscribing to GPS on every availability/token change would
+  // be wasteful) and would otherwise close over stale values.
+  const isOnlineRef = useRef(false);
+  const permissionRef = useRef<LocationPermissionState | null>(null);
+  const accessTokenRef = useRef<string | null>(accessToken);
+
+  useEffect(() => {
+    isOnlineRef.current = profile?.availabilityStatus === 'ONLINE';
+  }, [profile?.availabilityStatus]);
+
+  useEffect(() => {
+    permissionRef.current = permission;
+  }, [permission]);
+
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,14 +74,36 @@ export function DriverHomeMapScreen({ navigation }: Props) {
     async function resolveInitialLocation() {
       const result = await provider.getCurrentLocation();
       if (cancelled) return;
-      setCoordinate(result.coordinate);
+      setSample(result.sample);
       setPermission(result.permission);
     }
 
     void resolveInitialLocation();
 
     const unsubscribe = provider.watchLocation((next) => {
-      if (!cancelled) setCoordinate(next);
+      if (cancelled) return;
+      setSample(next);
+
+      // Missing permissions: permissionRef only reads 'granted' once a
+      // real fix has actually been obtained (or mock mode, which is
+      // always 'granted' — there's no real GPS to lack permission for).
+      // Background/foreground: AppState.currentState is checked at send
+      // time rather than via a subscription, since all that matters here
+      // is "don't call the API right now", not reacting to the
+      // transition itself.
+      // Network interruption: the POST is fire-and-forget — a failure
+      // here just means this one sample never made it; the next watch
+      // tick tries again on its own, no retry queue needed for a
+      // stream that self-heals every few seconds.
+      const shouldReport =
+        isOnlineRef.current &&
+        permissionRef.current === 'granted' &&
+        accessTokenRef.current &&
+        AppState.currentState === 'active';
+
+      if (shouldReport && accessTokenRef.current) {
+        void reportLocation(accessTokenRef.current, next).catch(() => undefined);
+      }
     });
 
     return () => {
@@ -84,8 +130,13 @@ export function DriverHomeMapScreen({ navigation }: Props) {
     }
   }
 
-  const region: Region = coordinate
-    ? { ...coordinate, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+  const region: Region = sample
+    ? {
+        latitude: sample.latitude,
+        longitude: sample.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }
     : FALLBACK_REGION;
   const isApproved = profile?.onboardingStatus === 'APPROVED';
   const isOnline = profile?.availabilityStatus === 'ONLINE';
@@ -93,7 +144,13 @@ export function DriverHomeMapScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
-        {coordinate && <Marker coordinate={coordinate} title="You" pinColor="#fbbf24" />}
+        {sample && (
+          <Marker
+            coordinate={{ latitude: sample.latitude, longitude: sample.longitude }}
+            title="You"
+            pinColor="#fbbf24"
+          />
+        )}
       </MapView>
 
       <View style={styles.topBar}>
@@ -114,7 +171,8 @@ export function DriverHomeMapScreen({ navigation }: Props) {
       {permission === 'denied' && (
         <View style={styles.permissionBanner}>
           <Text style={styles.permissionBannerText}>
-            Location permission denied — showing an approximate area instead of your real position.
+            Location permission denied — showing an approximate area, and your position isn&apos;t
+            being sent to the server.
           </Text>
         </View>
       )}
