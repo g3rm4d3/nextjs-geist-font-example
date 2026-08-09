@@ -41,6 +41,7 @@ the API is authoritative for all of that.
   /database        PostgreSQL schema (Drizzle ORM), migrations, seed/reset scripts
   /auth            Shared password hashing (bcrypt)
   /validation      Shared Zod request-payload schemas
+  /maps            Map/routing provider abstraction (server-side only)
 
 /docs              Architecture and process documentation
 /scripts           (reserved for future tooling — e.g. the driver/ride simulator)
@@ -90,9 +91,11 @@ npm run db:seed
 Never commit `.env` / `.env.local` files — they're gitignored. Never put
 real secrets in a committed `.env.example`. See
 [`docs/database.md`](docs/database.md) for the full schema, entity
-relationships, and what `db:migrate` / `db:seed` / `db:reset` each do, and
+relationships, and what `db:migrate` / `db:seed` / `db:reset` each do,
 [`docs/authentication.md`](docs/authentication.md) for the auth/token
-design and how to provision a local admin account.
+design and how to provision a local admin account, and
+[`docs/maps.md`](docs/maps.md) for the routing provider abstraction and
+its current dev-only (mock) implementation.
 
 ## Running each app independently
 
@@ -113,8 +116,16 @@ npm run dev:passenger
 npm run dev:driver
 ```
 
-Start the API first if you want the admin app's dashboard to show a live
-"Platform status" card (it calls `GET /health` on the API).
+Start the API first — the passenger app needs it for auth and route
+preview, and the admin app's dashboard shows a live "Platform status"
+card that calls `GET /health` on it.
+
+The passenger app requires a device or simulator to actually see the map
+render (this environment has neither — see `docs/maps.md` for what's
+verified here vs. what needs a real device). Once running: register a
+passenger account, allow location access (or drag the pickup pin
+manually), tap "Where to?" and pick a sample destination, then "Preview
+route" for a server-computed distance/duration.
 
 ## Verifying the API + database
 
@@ -156,20 +167,26 @@ The mobile apps don't have a "build" step in Stage 1 (no native binaries are
 produced yet); `expo export --platform android` / `--platform ios` is used
 in CI/manual validation to confirm the JS bundle compiles cleanly.
 
-## Known limitations (Stage 1, through Phase 2)
+## Known limitations (Stage 1, through Phase 3)
 
 - The API's `/health` check only proves connectivity (`SELECT 1`), not that
   the schema is migrated — a fresh, unmigrated database still reports
   `database.connected: true`.
-- Authentication is backend-only so far (see
-  [`docs/authentication.md`](docs/authentication.md) for the explicit
-  scoping decision) — no login/register screens exist in any client app
-  yet. Passenger/driver auth screens are Phase 3/5's job.
 - Password reset delivery returns the token directly in dev/test responses
   rather than sending a real email — Phase 16 owns real notification
   delivery.
-- Mobile apps render a static placeholder screen; no maps, ride flows, or
-  navigation stack yet — Phases 3 and 5.
+- The driver app still renders only a static placeholder screen — its
+  core (auth screens, onboarding, availability) is Phase 5's job.
+- Route/distance calculation is a MOCK straight-line estimate
+  (`@rideshare/maps`), not real road routing — see `docs/maps.md`. Fares
+  are not shown yet at all (Phase 4).
+- No Google Maps/Places API key is configured or verifiable in this
+  environment: Android map tiles won't render without one, and
+  destination search works against a small curated dev fixture list
+  instead of free-form address geocoding (`docs/maps.md`).
+- Ride matching, requests, and the rest of the ride lifecycle don't exist
+  yet (Phases 7–9) — the passenger app's "Request Ride" and downstream
+  screens are honest placeholders, not fake functionality.
 - `npm audit` reports vulnerabilities inside Expo/Metro's own build-tooling
   dependency chain (dev-time only, not shipped to end users). These track
   upstream Expo/Metro releases and are not something this repo can fix by

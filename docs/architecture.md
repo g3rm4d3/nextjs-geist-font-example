@@ -83,7 +83,18 @@ server-side role checks for exactly this reason.
   /validation      Shared Zod request-payload schemas. apps/api runs
                     these server-side as the authoritative check; client
                     apps may reuse them for form UX only (Phase 2).
+  /maps            Map/routing provider abstraction (RouteProvider).
+                    Consumed server-side only (apps/api) — no map API key
+                    is ever embedded in a mobile client bundle (Phase 3).
+                    See docs/maps.md.
 ```
+
+**When adding a new `packages/*` with its own `build` script:** also add it
+to the root `build:packages` chain in `package.json` (plain npm workspaces
+has no automatic topological build ordering — this has already been
+missed twice, once for `packages/database`/`packages/auth`/`packages/validation`
+in Phase 2 and once for `packages/maps` in Phase 3, both caught by running
+a from-scratch `npm run build` before committing).
 
 Per the engineering spec, packages are only extracted when there's a
 legitimate, current architectural reason — not speculatively. Phase 0

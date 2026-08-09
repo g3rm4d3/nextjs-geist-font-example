@@ -1,0 +1,22 @@
+{
+  "name": "@rideshare/maps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Map/routing provider abstraction (section 13). Used server-side by apps/api so no map API key is ever embedded in a mobile client bundle.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

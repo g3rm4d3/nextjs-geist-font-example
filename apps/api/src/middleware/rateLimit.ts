@@ -47,3 +47,9 @@ export const passwordResetLimiter = createLimiter({
   max: 10,
   message: 'Too many password reset requests. Try again later.',
 });
+
+export const routePreviewLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many route preview requests. Try again in a moment.',
+});

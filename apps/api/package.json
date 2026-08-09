@@ -17,6 +17,7 @@
     "@rideshare/auth": "*",
     "@rideshare/database": "*",
     "@rideshare/logging": "*",
+    "@rideshare/maps": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",
     "cors": "^2.8.6",

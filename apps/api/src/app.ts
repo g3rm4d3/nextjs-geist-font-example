@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth';
 import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
 import { passengersRouter } from './routes/passengers';
+import { routePreviewRouter } from './routes/routePreview';
 
 /**
  * Builds the Express application without starting a listener, so tests can
@@ -37,6 +38,7 @@ export function createApp(): Express {
   app.use(passengersRouter);
   app.use(driversRouter);
   app.use(adminRouter);
+  app.use(routePreviewRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
