@@ -38,9 +38,10 @@ the API is authoritative for all of that.
   /types           Shared TypeScript types (API envelopes, contracts)
   /config          Shared TypeScript + ESLint base configuration
   /logging         Shared structured logger (pino, with redaction)
+  /database        PostgreSQL schema (Drizzle ORM), migrations, seed/reset scripts
 
 /docs              Architecture and process documentation
-/scripts           (reserved for future db:migrate / db:seed tooling — Phase 1)
+/scripts           (reserved for future tooling — e.g. the driver/ride simulator)
 /infrastructure    (reserved for deployment config — later phases)
 ```
 
@@ -73,10 +74,17 @@ cp apps/api/.env.example apps/api/.env
 cp apps/admin-app/.env.example apps/admin-app/.env.local
 cp apps/passenger-app/.env.example apps/passenger-app/.env
 cp apps/driver-app/.env.example apps/driver-app/.env
+cp packages/database/.env.example packages/database/.env
+
+# 5. Create the schema and fill it with fictional dev data
+npm run db:migrate
+npm run db:seed
 ```
 
 Never commit `.env` / `.env.local` files — they're gitignored. Never put
-real secrets in a committed `.env.example`.
+real secrets in a committed `.env.example`. See
+[`docs/database.md`](docs/database.md) for the full schema, entity
+relationships, and what `db:migrate` / `db:seed` / `db:reset` each do.
 
 ## Running each app independently
 
@@ -140,10 +148,12 @@ The mobile apps don't have a "build" step in Stage 1 (no native binaries are
 produced yet); `expo export --platform android` / `--platform ios` is used
 in CI/manual validation to confirm the JS bundle compiles cleanly.
 
-## Known limitations (Stage 1, Phase 0)
+## Known limitations (Stage 1, through Phase 1)
 
-- No database schema/migrations yet — that's Phase 1. The API's `/health`
-  check only proves connectivity (`SELECT 1`), not schema correctness.
+- The API's `/health` check only proves connectivity (`SELECT 1`), not that
+  the schema is migrated — a fresh, unmigrated database still reports
+  `database.connected: true`. No route in `apps/api` reads/writes the
+  schema yet; that starts in Phase 2 (auth) and Phase 7 (ride requests).
 - No authentication yet — Phase 2.
 - Mobile apps render a static placeholder screen; no maps, ride flows, or
   navigation stack yet — Phases 3 and 5.

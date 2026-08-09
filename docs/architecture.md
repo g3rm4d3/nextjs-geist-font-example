@@ -75,15 +75,18 @@ server-side role checks for exactly this reason.
                     redaction of sensitive fields (passwords, tokens,
                     secrets). Used by apps/api today; any future backend
                     service reuses it instead of re-implementing logging.
+  /database        PostgreSQL schema (Drizzle ORM), migrations, and
+                    dev seed/reset scripts (Phase 1). See docs/database.md.
 ```
 
 Per the engineering spec, packages are only extracted when there's a
 legitimate, current architectural reason — not speculatively. Phase 0
-deliberately does **not** create `/packages/database`, `/packages/pricing`,
-`/packages/matching`, `/packages/ride-engine`, etc. Those appear in the
-phases that actually need them (database migrations in Phase 1, pricing
-logic in Phase 4, and so on), so their shape can be driven by real
-requirements instead of guesses.
+deliberately did **not** create `/packages/database`, `/packages/pricing`,
+`/packages/matching`, `/packages/ride-engine`, etc. `/packages/database`
+was added in Phase 1, once there was an actual schema to own; the rest
+still wait for the phases that need them (pricing logic in Phase 4,
+matching in Phase 8, ...), so their shape is driven by real requirements
+instead of guesses.
 
 ## Request/response contract
 

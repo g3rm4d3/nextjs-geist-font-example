@@ -1,0 +1,36 @@
+{
+  "name": "@rideshare/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PostgreSQL schema (Drizzle ORM), migrations, and dev seed/reset tooling for the rideshare platform.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/migrate.ts",
+    "seed": "tsx src/seed.ts",
+    "reset": "tsx src/reset.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.5.0",
+    "@rideshare/config": "*",
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.11",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,6 +1,9 @@
 # scripts
 
-Reserved for repository-wide tooling scripts (`db:migrate`, `db:seed`,
-`db:reset`, the driver/ride simulator, etc.). These land in the phases that
-introduce the thing they operate on — the database scripts in Phase 1, the
-simulator in Phase 6/19 — rather than being stubbed out speculatively here.
+Reserved for repository-wide tooling scripts that don't belong to a single
+package (the driver/ride simulator, load-test harnesses, etc. — Phase 6/19).
+
+Database tooling (`db:migrate` / `db:seed` / `db:reset`) lives in
+`packages/database` instead, since it's tightly coupled to the schema
+package rather than being a standalone script — see
+[`docs/database.md`](../docs/database.md).
