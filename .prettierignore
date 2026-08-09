@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.next
+.expo
+.expo-shared
+web-build
+coverage
+package-lock.json
+*.md

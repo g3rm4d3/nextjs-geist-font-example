@@ -1,0 +1,32 @@
+{
+  "name": "rideshare-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Rideshare platform monorepo (Stage 1 — development/technical validation, not for commercial launch).",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:admin": "npm run dev --workspace=apps/admin-app",
+    "dev:passenger": "npm run start --workspace=apps/passenger-app",
+    "dev:driver": "npm run start --workspace=apps/driver-app",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/admin-app",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:admin": "npm run build --workspace=apps/admin-app",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.3"
+  }
+}
