@@ -11,6 +11,8 @@ export type UserRole = 'PASSENGER' | 'DRIVER' | 'ADMIN' | 'SUPER_ADMIN';
 export type DriverOnboardingStatus =
   'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
+export type DriverAvailabilityStatus = 'OFFLINE' | 'ONLINE' | 'BUSY';
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -18,6 +20,8 @@ export interface AuthUser {
   isActive: boolean;
   /** Present only when role === 'DRIVER'. */
   driverOnboardingStatus?: DriverOnboardingStatus;
+  /** Present only when role === 'DRIVER'. */
+  driverAvailabilityStatus?: DriverAvailabilityStatus;
 }
 
 export interface AuthTokens {

@@ -3,6 +3,7 @@ import type {
   ApiErrorResponse,
   ApiSuccessResponse,
   AuthResponse,
+  DriverProfileSummary,
   FareEstimate,
   HealthCheckResponse,
 } from './index';
@@ -72,5 +73,34 @@ describe('shared API types', () => {
     expect(estimate.platformCommissionCents + estimate.driverEarningsCents).toBe(
       estimate.totalCents,
     );
+  });
+
+  it('accepts a well-formed driver profile summary with no vehicle yet', () => {
+    const summary: DriverProfileSummary = {
+      onboardingStatus: 'DRAFT',
+      availabilityStatus: 'OFFLINE',
+      vehicle: null,
+    };
+
+    expect(summary.vehicle).toBeNull();
+  });
+
+  it('accepts a well-formed driver profile summary with a vehicle', () => {
+    const summary: DriverProfileSummary = {
+      onboardingStatus: 'APPROVED',
+      availabilityStatus: 'ONLINE',
+      vehicle: {
+        id: 'veh_1',
+        make: 'Toyota',
+        model: 'Camry',
+        year: 2022,
+        color: 'Silver',
+        licensePlate: 'DEV-1234',
+        vin: null,
+        seats: 4,
+      },
+    };
+
+    expect(summary.availabilityStatus).toBe('ONLINE');
   });
 });
