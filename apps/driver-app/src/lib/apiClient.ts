@@ -123,5 +123,43 @@ export function declineOffer(
   accessToken: string,
   rideRequestId: string,
 ): Promise<{ declined: boolean }> {
-  return request<{ declined: boolean }>(`/drivers/me/offer/${rideRequestId}/decline`, { accessToken });
+  return request<{ declined: boolean }>(`/drivers/me/offer/${rideRequestId}/decline`, {
+    accessToken,
+  });
+}
+
+/**
+ * Phase 9: the strict driver-driven forward lifecycle, one function per
+ * transition — see docs/ride-lifecycle.md. Each returns the updated
+ * Ride so callers can hand it straight to ActiveRideContext.setRide.
+ */
+export function markEnRoute(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/en-route`, { accessToken });
+}
+
+export function markArrived(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/arrived`, { accessToken });
+}
+
+export function markPassengerOnboard(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/picked-up`, { accessToken });
+}
+
+export function startTrip(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/start`, { accessToken });
+}
+
+export function completeRide(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/complete`, { accessToken });
+}
+
+export function cancelRideAsDriver(
+  accessToken: string,
+  rideId: string,
+  reason?: string,
+): Promise<Ride> {
+  return request<Ride>(`/drivers/me/rides/${rideId}/cancel`, {
+    body: reason ? { reason } : {},
+    accessToken,
+  });
 }

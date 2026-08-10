@@ -9,6 +9,7 @@ import { requestIdMiddleware } from './middleware/requestId';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { driverOffersRouter } from './routes/driverOffers';
+import { driverRidesRouter } from './routes/driverRides';
 import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
 import { passengersRouter } from './routes/passengers';
@@ -41,6 +42,7 @@ export function createApp(): Express {
   app.use(passengersRouter);
   app.use(driversRouter);
   app.use(driverOffersRouter);
+  app.use(driverRidesRouter);
   app.use(adminRouter);
   app.use(routePreviewRouter);
   app.use(pricingRouter);

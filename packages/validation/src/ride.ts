@@ -23,3 +23,14 @@ export const createRideRequestSchema = z.object({
   idempotencyKey: z.string().trim().min(1).max(100),
 });
 export type CreateRideRequestInput = z.infer<typeof createRideRequestSchema>;
+
+/**
+ * Phase 9: POST .../cancel, for both the passenger- and driver-facing
+ * cancel endpoints. `reason` is optional and freeform (an operator-
+ * facing note, not shown to the other party in Stage 1) — cancellation
+ * itself is never gated on providing one.
+ */
+export const cancelRideSchema = z.object({
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export type CancelRideInput = z.infer<typeof cancelRideSchema>;

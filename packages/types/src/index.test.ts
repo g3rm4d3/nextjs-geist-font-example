@@ -166,6 +166,10 @@ describe('shared API types', () => {
       estimatedDistanceMeters: 5000,
       estimatedDurationSeconds: 900,
       estimatedFareCents: 1450,
+      actualDistanceMeters: null,
+      actualDurationSeconds: null,
+      finalFareCents: null,
+      cancellationReason: null,
       requestedAt: new Date().toISOString(),
     };
 

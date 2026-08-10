@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RideOffer } from '@rideshare/types';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useActiveRide } from '../context/ActiveRideContext';
 import { useAuth } from '../context/AuthContext';
 import { acceptOffer, ApiClientError, declineOffer, getCurrentOffer } from '../lib/apiClient';
 import { formatCents, formatDistanceMiles } from '../lib/format';
@@ -26,6 +27,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'IncomingRequest'>;
  */
 export function IncomingRequestScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
+  const { setRide } = useActiveRide();
   const [offer, setOffer] = useState<RideOffer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -84,7 +86,8 @@ export function IncomingRequestScreen({ navigation }: Props) {
     setErrorMessage(null);
     setIsResponding(true);
     try {
-      await acceptOffer(accessToken, offer.id);
+      const ride = await acceptOffer(accessToken, offer.id);
+      setRide(ride);
       navigation.navigate('PickupNavigation');
     } catch (error) {
       setErrorMessage(
@@ -94,7 +97,7 @@ export function IncomingRequestScreen({ navigation }: Props) {
       );
       setIsResponding(false);
     }
-  }, [accessToken, offer, navigation]);
+  }, [accessToken, offer, setRide, navigation]);
 
   const handleDecline = useCallback(async () => {
     if (!accessToken || !offer) return;
@@ -104,7 +107,9 @@ export function IncomingRequestScreen({ navigation }: Props) {
       await declineOffer(accessToken, offer.id);
       navigation.navigate('DriverHomeMap');
     } catch (error) {
-      setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not decline this ride.');
+      setErrorMessage(
+        error instanceof ApiClientError ? error.message : 'Could not decline this ride.',
+      );
       setIsResponding(false);
     }
   }, [accessToken, offer, navigation]);
@@ -122,7 +127,8 @@ export function IncomingRequestScreen({ navigation }: Props) {
       <View style={styles.centered}>
         <Text style={styles.title}>No ride request right now</Text>
         <Text style={styles.subtitle}>
-          The next one will bring you straight here as soon as the matching engine offers you a ride.
+          The next one will bring you straight here as soon as the matching engine offers you a
+          ride.
         </Text>
         <Pressable
           style={styles.secondaryButton}
@@ -162,7 +168,9 @@ export function IncomingRequestScreen({ navigation }: Props) {
         <View style={[styles.row, styles.totalRow]}>
           <Text style={styles.totalLabel}>Estimated fare</Text>
           <Text style={styles.totalValue}>
-            {offer.ride.estimatedFareCents !== null ? formatCents(offer.ride.estimatedFareCents) : '—'}
+            {offer.ride.estimatedFareCents !== null
+              ? formatCents(offer.ride.estimatedFareCents)
+              : '—'}
           </Text>
         </View>
       </View>
@@ -204,7 +212,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-  title: { color: '#fafaf9', fontSize: 18, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  title: {
+    color: '#fafaf9',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   subtitle: {
     color: '#a8a29e',
     fontSize: 13,

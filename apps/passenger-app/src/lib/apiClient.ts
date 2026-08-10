@@ -84,3 +84,15 @@ export function createRideRequest(
 ): Promise<Ride> {
   return request<Ride>('/rides', { body: input, accessToken });
 }
+
+/**
+ * Phase 9: the one passenger-facing state-changing action — only legal
+ * up through DRIVER_ARRIVED server-side (rideLifecycleService), a 409
+ * past that point.
+ */
+export function cancelRide(accessToken: string, rideId: string, reason?: string): Promise<Ride> {
+  return request<Ride>(`/rides/${rideId}/cancel`, {
+    body: reason ? { reason } : {},
+    accessToken,
+  });
+}

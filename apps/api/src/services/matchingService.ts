@@ -12,6 +12,7 @@ import { db } from '../db/client';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { routeProvider } from '../lib/mapProvider';
+import { toRide } from '../lib/rideMapper';
 import {
   createOffer,
   declineOfferAtomic,
@@ -21,7 +22,7 @@ import {
   findTriedDriverIdsForRide,
   expireOfferAtomic,
 } from '../repositories/matchingRepository';
-import { findRideById, type RideRow } from '../repositories/ridesRepository';
+import { findRideById } from '../repositories/ridesRepository';
 import { findDriverProfileByUserId } from '../repositories/usersRepository';
 import { STALE_THRESHOLD_MS } from './locationService';
 
@@ -37,32 +38,6 @@ async function requireDriverId(userId: string): Promise<string> {
   const profile = await findDriverProfileByUserId(userId);
   if (!profile) throw new Error('Driver profile not found for authenticated driver user');
   return profile.id;
-}
-
-// Deliberately not imported from rideService: rideService will call
-// startMatching() below (Phase 7 deferred "automatically match driver"
-// to this phase), and matchingService importing back from rideService
-// would make that a circular module dependency. The mapping itself is
-// tiny and has one owner in spirit (RideRow -> Ride), so a second,
-// identical copy here is the simpler trade-off — see rideService.ts's
-// own toRide for the twin.
-function toRide(row: RideRow): Ride {
-  return {
-    id: row.id,
-    status: row.status,
-    pickup: {
-      coordinate: { latitude: row.pickupLat, longitude: row.pickupLng },
-      label: row.pickupAddress,
-    },
-    destination: {
-      coordinate: { latitude: row.destinationLat, longitude: row.destinationLng },
-      label: row.destinationAddress,
-    },
-    estimatedDistanceMeters: row.estimatedDistanceMeters,
-    estimatedDurationSeconds: row.estimatedDurationSeconds,
-    estimatedFareCents: row.estimatedFareCents,
-    requestedAt: row.requestedAt.toISOString(),
-  };
 }
 
 /** GET /drivers/me/offer: the driver's currently-open offer (if any),
@@ -231,7 +206,9 @@ export async function handleAccept(rideRequestId: string, userId: string): Promi
     const [existingRequest] = await tx
       .select()
       .from(schema.rideRequests)
-      .where(and(eq(schema.rideRequests.id, rideRequestId), eq(schema.rideRequests.driverId, driverId)))
+      .where(
+        and(eq(schema.rideRequests.id, rideRequestId), eq(schema.rideRequests.driverId, driverId)),
+      )
       .limit(1);
 
     if (!existingRequest || existingRequest.status !== 'OFFERED') {
@@ -240,9 +217,12 @@ export async function handleAccept(rideRequestId: string, userId: string): Promi
 
     const [assignedRide] = await tx
       .update(schema.rides)
-      .set({ status: 'DRIVER_ASSIGNED', driverId, updatedAt: now })
+      .set({ status: 'DRIVER_ASSIGNED', driverId, matchedAt: now, updatedAt: now })
       .where(
-        and(eq(schema.rides.id, existingRequest.rideId), eq(schema.rides.status, 'SEARCHING_DRIVER')),
+        and(
+          eq(schema.rides.id, existingRequest.rideId),
+          eq(schema.rides.status, 'SEARCHING_DRIVER'),
+        ),
       )
       .returning();
 
@@ -254,7 +234,9 @@ export async function handleAccept(rideRequestId: string, userId: string): Promi
       await tx
         .update(schema.rideRequests)
         .set({ status: 'EXPIRED', respondedAt: now })
-        .where(and(eq(schema.rideRequests.id, rideRequestId), eq(schema.rideRequests.status, 'OFFERED')));
+        .where(
+          and(eq(schema.rideRequests.id, rideRequestId), eq(schema.rideRequests.status, 'OFFERED')),
+        );
       return { outcome: 'ride_already_assigned' as const };
     }
 
@@ -338,7 +320,10 @@ export async function handleDecline(rideRequestId: string, userId: string): Prom
     throw new ConflictError('This ride offer is no longer available to respond to');
   }
 
-  logger.info({ rideId: declined.rideId, driverId, rideRequestId }, 'Matching: driver declined ride offer');
+  logger.info(
+    { rideId: declined.rideId, driverId, rideRequestId },
+    'Matching: driver declined ride offer',
+  );
   await advanceToNextCandidate(declined.rideId);
 }
 

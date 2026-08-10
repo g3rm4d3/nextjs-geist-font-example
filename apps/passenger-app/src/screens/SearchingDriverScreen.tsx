@@ -1,17 +1,48 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { useRideDraft } from '../context/RideDraftContext';
+import { ApiClientError, cancelRide } from '../lib/apiClient';
 import { formatCents, formatDistanceMiles, formatDurationMinutes } from '../lib/format';
+import type { RootStackParamList } from '../navigation/types';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'SearchingDriver'>;
 
 /**
- * The ride created in Phase 7 sits in SEARCHING_DRIVER indefinitely —
- * matching a driver to it is explicitly Phase 8's job, not this one's
- * ("Do NOT automatically match driver until Phase 8"). This screen shows
- * the real ride RequestRideScreen just created (not a placeholder — the
- * data is genuinely available now) but has nothing to *do* with it yet:
- * no polling, no offers, no ETA. That honest gap is the point.
+ * The ride created in Phase 7 now actually gets matched (Phase 8) and
+ * moves through the driver lifecycle (Phase 9) — but this screen still
+ * has no polling and no live status display; watching that unfold in
+ * real time is explicitly Phase 10's "realtime ride experience" ("display
+ * assigned driver... driver location... estimated arrival"), not this
+ * one's. What Phase 9 *does* add here is the one thing squarely in its
+ * own scope: "implement cancellation pathways" — a passenger stuck
+ * waiting needs a way out, so there's a Cancel button, wired to the real
+ * `POST /rides/:id/cancel` endpoint (legal up through DRIVER_ARRIVED
+ * server-side; a 409 past that point, though nothing here can currently
+ * *learn* it's past that point without the polling Phase 10 adds).
  */
-export function SearchingDriverScreen() {
-  const { pickup, destination, ride } = useRideDraft();
+export function SearchingDriverScreen({ navigation }: Props) {
+  const { accessToken } = useAuth();
+  const { pickup, destination, ride, reset } = useRideDraft();
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleCancel = useCallback(async () => {
+    if (!accessToken || !ride) return;
+    setErrorMessage(null);
+    setIsCancelling(true);
+    try {
+      await cancelRide(accessToken, ride.id);
+      reset();
+      navigation.navigate('HomeMap');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof ApiClientError ? error.message : 'Could not cancel this ride.',
+      );
+      setIsCancelling(false);
+    }
+  }, [accessToken, ride, reset, navigation]);
 
   if (!ride || !pickup || !destination) {
     return (
@@ -27,8 +58,8 @@ export function SearchingDriverScreen() {
         <ActivityIndicator color="#fbbf24" size="large" style={styles.spinner} />
         <Text style={styles.title}>Searching for a driver…</Text>
         <Text style={styles.subtitle}>
-          The matching engine that finds and offers rides to nearby drivers is built in Phase 8.
-          This request will stay in {ride.status} until then.
+          This screen doesn&apos;t yet update live as your ride moves through matching and pickup —
+          that&apos;s Phase 10. Your request will keep progressing on the server in the meantime.
         </Text>
       </View>
 
@@ -49,7 +80,9 @@ export function SearchingDriverScreen() {
         {ride.estimatedDurationSeconds !== null && (
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Estimated duration</Text>
-            <Text style={styles.rowValue}>{formatDurationMinutes(ride.estimatedDurationSeconds)}</Text>
+            <Text style={styles.rowValue}>
+              {formatDurationMinutes(ride.estimatedDurationSeconds)}
+            </Text>
           </View>
         )}
         {ride.estimatedFareCents !== null && (
@@ -59,15 +92,36 @@ export function SearchingDriverScreen() {
           </View>
         )}
       </View>
+
+      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+
+      <Pressable
+        style={[styles.cancelButton, isCancelling && styles.cancelButtonDisabled]}
+        onPress={handleCancel}
+        disabled={isCancelling}
+        testID="cancel-ride-button"
+      >
+        {isCancelling ? (
+          <ActivityIndicator color="#f87171" />
+        ) : (
+          <Text style={styles.cancelButtonText}>Cancel ride</Text>
+        )}
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a', padding: 20 },
+  container: { flex: 1, backgroundColor: '#0f172a', padding: 20, justifyContent: 'space-between' },
   centered: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
   spinner: { marginBottom: 16 },
-  title: { color: '#f8fafc', fontSize: 18, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  title: {
+    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   subtitle: { color: '#94a3b8', fontSize: 13, textAlign: 'center', maxWidth: 320, lineHeight: 18 },
   card: {
     backgroundColor: '#1e293b',
@@ -87,5 +141,15 @@ const styles = StyleSheet.create({
   rowValue: { color: '#f8fafc', fontSize: 14, fontWeight: '600' },
   totalLabel: { color: '#f8fafc', fontSize: 15, fontWeight: '700' },
   totalValue: { color: '#fbbf24', fontSize: 16, fontWeight: '700' },
-  errorText: { color: '#f87171' },
+  errorText: { color: '#f87171', textAlign: 'center', marginTop: 12 },
+  cancelButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f87171',
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  cancelButtonDisabled: { opacity: 0.5 },
+  cancelButtonText: { color: '#f87171', fontSize: 15, fontWeight: '700' },
 });

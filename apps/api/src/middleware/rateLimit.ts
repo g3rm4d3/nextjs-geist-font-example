@@ -123,3 +123,15 @@ export const driverOfferLimiter = createLimiter({
   message: 'Too many offer requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 9: the ride lifecycle transition + cancel + GET-ride endpoints,
+// for both apps. Same per-user (not per-IP) reasoning as every other
+// limiter in this file below — these sit behind requireAuth, and a
+// driver's own progression through one ride is a per-user cadence, not
+// an IP dimension.
+export const rideLifecycleLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 60,
+  message: 'Too many requests for this ride. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

@@ -22,10 +22,7 @@ export interface FareEstimateWithRoute {
  * computing them separately would mean loading the pricing config and
  * calling routeProvider twice for the same request.
  */
-export async function getFareEstimateWithRoute(
-  origin: Coordinate,
-  destination: Coordinate,
-): Promise<FareEstimateWithRoute> {
+async function loadActivePricingConfig(): Promise<PricingConfig> {
   const configRow = await findActivePricingConfig();
   if (!configRow) {
     // Genuine misconfiguration (no active pricing_configs row) — Phase 1's
@@ -34,7 +31,7 @@ export async function getFareEstimateWithRoute(
     throw new Error('No active pricing configuration found');
   }
 
-  const config: PricingConfig = {
+  return {
     baseFareCents: configRow.baseFareCents,
     perMileRateCents: configRow.perMileRateCents,
     perMinuteRateCents: configRow.perMinuteRateCents,
@@ -45,7 +42,13 @@ export async function getFareEstimateWithRoute(
     // since this column is constrained to [0, 100] with 2 decimal places.
     platformCommissionPercentage: Number(configRow.platformCommissionPercentage),
   };
+}
 
+export async function getFareEstimateWithRoute(
+  origin: Coordinate,
+  destination: Coordinate,
+): Promise<FareEstimateWithRoute> {
+  const config = await loadActivePricingConfig();
   const route = await routeProvider.getRoute(origin, destination);
   const fare = calculateFare(route, config);
   return { route, fare };
@@ -57,4 +60,19 @@ export async function getFareEstimate(
 ): Promise<FareBreakdown> {
   const { fare } = await getFareEstimateWithRoute(origin, destination);
   return fare;
+}
+
+/**
+ * Phase 9: the ride's *final* fare at COMPLETED, computed the same
+ * server-authoritative way as the estimate (section 3) but from the
+ * trip's actual distance/duration rather than the pre-trip route
+ * preview — see rideLifecycleService.completeRide for what "actual"
+ * means in a Stage 1 with no live route tracking.
+ */
+export async function getFareForActualTrip(
+  distanceMeters: number,
+  durationSeconds: number,
+): Promise<FareBreakdown> {
+  const config = await loadActivePricingConfig();
+  return calculateFare({ distanceMeters, durationSeconds }, config);
 }

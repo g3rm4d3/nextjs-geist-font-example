@@ -1,21 +1,13 @@
 import type { Ride, RideOffer } from '@rideshare/types';
 import { Router } from 'express';
-import { UnauthorizedError, ValidationError } from '../lib/errors';
+import { UnauthorizedError } from '../lib/errors';
+import { requireIdParam } from '../lib/params';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { driverOfferLimiter } from '../middleware/rateLimit';
 import * as matchingService from '../services/matchingService';
 
 export const driverOffersRouter = Router();
-
-/** req.params.id is typed string | string[] | undefined by Express —
- * only a single plain string is ever a valid ride_request id. */
-function requireIdParam(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new ValidationError('A valid offer id is required');
-  }
-  return value;
-}
 
 /**
  * Section 8's offer flow, from the driver's side: a driver-app poll loop

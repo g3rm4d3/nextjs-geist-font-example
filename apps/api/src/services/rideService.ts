@@ -2,12 +2,12 @@ import type { CreateRideRequest, Ride } from '@rideshare/types';
 import { ConflictError, ForbiddenError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { isUniqueViolation } from '../lib/pgErrors';
+import { toRide } from '../lib/rideMapper';
 import { findPassengerProfileByUserId, findUserById } from '../repositories/usersRepository';
 import {
   createRideAndAdvanceToSearching,
   findActiveRideForPassenger,
   findRideByIdempotencyKey,
-  type RideRow,
 } from '../repositories/ridesRepository';
 import { startMatching } from './matchingService';
 import { getFareEstimateWithRoute } from './pricingService';
@@ -17,25 +17,6 @@ export interface RequestRideResult {
   /** False when this call returned a pre-existing ride matching the
    * given idempotency key rather than creating a new one. */
   created: boolean;
-}
-
-function toRide(row: RideRow): Ride {
-  return {
-    id: row.id,
-    status: row.status,
-    pickup: {
-      coordinate: { latitude: row.pickupLat, longitude: row.pickupLng },
-      label: row.pickupAddress,
-    },
-    destination: {
-      coordinate: { latitude: row.destinationLat, longitude: row.destinationLng },
-      label: row.destinationAddress,
-    },
-    estimatedDistanceMeters: row.estimatedDistanceMeters,
-    estimatedDurationSeconds: row.estimatedDurationSeconds,
-    estimatedFareCents: row.estimatedFareCents,
-    requestedAt: row.requestedAt.toISOString(),
-  };
 }
 
 /**
@@ -117,7 +98,10 @@ export async function requestRide(
     try {
       await startMatching(created.id);
     } catch (matchingError) {
-      logger.error({ err: matchingError, rideId: created.id }, 'Matching failed to start for new ride');
+      logger.error(
+        { err: matchingError, rideId: created.id },
+        'Matching failed to start for new ride',
+      );
     }
 
     return { ride: toRide(created), created: true };

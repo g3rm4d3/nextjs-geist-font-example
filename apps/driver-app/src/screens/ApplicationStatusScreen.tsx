@@ -13,19 +13,23 @@ const STATUS_COPY: Record<DriverOnboardingStatus, { label: string; description: 
   },
   PENDING_REVIEW: {
     label: 'Under review',
-    description: 'Your application is with the platform team. This normally takes 1–2 business days in a real deployment.',
+    description:
+      'Your application is with the platform team. This normally takes 1–2 business days in a real deployment.',
   },
   APPROVED: {
     label: 'Approved',
-    description: 'You can go online and start receiving ride requests once matching exists (Phase 8+).',
+    description:
+      'You can go online and start receiving ride requests once matching exists (Phase 8+).',
   },
   REJECTED: {
     label: 'Not approved',
-    description: 'Your application was not approved. Contact support for details once support tickets exist (Phase 18).',
+    description:
+      'Your application was not approved. Contact support for details once support tickets exist (Phase 18).',
   },
   SUSPENDED: {
     label: 'Suspended',
-    description: 'Your driver account has been suspended. Contact support for details once support tickets exist (Phase 18).',
+    description:
+      'Your driver account has been suspended. Contact support for details once support tickets exist (Phase 18).',
   },
 };
 
@@ -61,7 +65,9 @@ export function ApplicationStatusScreen({ navigation }: Props) {
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Vehicle on file</Text>
           <Text style={styles.rowValue}>
-            {profile.vehicle ? `${profile.vehicle.year} ${profile.vehicle.make} ${profile.vehicle.model}` : 'None yet'}
+            {profile.vehicle
+              ? `${profile.vehicle.year} ${profile.vehicle.make} ${profile.vehicle.model}`
+              : 'None yet'}
           </Text>
         </View>
       </View>

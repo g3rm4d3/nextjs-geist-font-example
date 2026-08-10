@@ -151,7 +151,9 @@ export function AuthScreen() {
           }}
         >
           <Text style={styles.toggleText}>
-            {isRegister ? 'Already have an account? Log in' : "Don't have an account? Apply to drive"}
+            {isRegister
+              ? 'Already have an account? Log in'
+              : "Don't have an account? Apply to drive"}
           </Text>
         </Pressable>
       </ScrollView>

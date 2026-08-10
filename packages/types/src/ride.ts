@@ -2,10 +2,9 @@
  * Section 12's ride lifecycle states — duplicated by hand from
  * packages/database/src/schema/enums.ts's rideStatusEnum, same
  * dependency-free convention as every other type in this package (see
- * docs/architecture.md). Only REQUESTED and SEARCHING_DRIVER are ever
- * produced by anything built so far (Phase 7); the rest exist here
- * because a client needs the full union to type a `status` field at
- * all, not because this phase can put a ride into any of them.
+ * docs/architecture.md). As of Phase 9, every one of these is a real,
+ * reachable state — see docs/ride-lifecycle.md for the full state
+ * machine (which transitions are legal, who can trigger each one).
  */
 export type RideStatus =
   | 'REQUESTED'
@@ -46,8 +45,11 @@ export interface CreateRideRequest {
   idempotencyKey: string;
 }
 
-/** What POST /rides returns — the created (or, on an idempotent replay,
- * the pre-existing) ride. */
+/** The full ride record every ride-related endpoint returns — created,
+ * accepted, advanced through the lifecycle, or cancelled, always this
+ * same shape. `actual*`/`finalFareCents` are null until COMPLETED (see
+ * rideLifecycleService.completeRide); `cancellationReason` is null
+ * unless `status` is one of the three `CANCELLED_BY_*` values. */
 export interface Ride {
   id: string;
   status: RideStatus;
@@ -56,6 +58,10 @@ export interface Ride {
   estimatedDistanceMeters: number | null;
   estimatedDurationSeconds: number | null;
   estimatedFareCents: number | null;
+  actualDistanceMeters: number | null;
+  actualDurationSeconds: number | null;
+  finalFareCents: number | null;
+  cancellationReason: string | null;
   requestedAt: string;
 }
 
