@@ -17,11 +17,13 @@ import {
 /**
  * A location older than this is still returned (never hidden) but
  * flagged `isStale: true` — the concrete answer to "handle stale GPS"
- * for anything that reads a driver's position (the admin map today; a
- * later phase's "recent valid location" matching eligibility check,
- * section 8's own wording, tomorrow).
+ * for anything that reads a driver's position (the admin map here;
+ * Phase 8's matchingRepository.findEligibleDrivers, which imports this
+ * same constant for its own "recent valid location" eligibility check —
+ * section 8's own wording — rather than defining a second one that could
+ * drift out of sync with this file's).
  */
-const STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+export const STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
 
 /**
  * A ping whose client-supplied timestamp is further in the future than

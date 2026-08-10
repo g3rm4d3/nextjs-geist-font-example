@@ -1,5 +1,6 @@
 import type { CreateRideRequest, Ride } from '@rideshare/types';
 import { ConflictError, ForbiddenError } from '../lib/errors';
+import { logger } from '../lib/logger';
 import { isUniqueViolation } from '../lib/pgErrors';
 import { findPassengerProfileByUserId, findUserById } from '../repositories/usersRepository';
 import {
@@ -8,6 +9,7 @@ import {
   findRideByIdempotencyKey,
   type RideRow,
 } from '../repositories/ridesRepository';
+import { startMatching } from './matchingService';
 import { getFareEstimateWithRoute } from './pricingService';
 
 export interface RequestRideResult {
@@ -104,6 +106,19 @@ export async function requestRide(
       },
       userId,
     );
+
+    // Phase 7 deliberately stopped at SEARCHING_DRIVER and left matching
+    // for this phase. Best-effort: a matching failure (no candidates
+    // found is not a failure — see matchingService — but a genuine
+    // exception would be, e.g. the route provider throwing) must not
+    // fail the ride request itself. The ride still exists and is
+    // SEARCHING_DRIVER; the background sweep or a later retry path can
+    // pick it up. Logged, not swallowed silently.
+    try {
+      await startMatching(created.id);
+    } catch (matchingError) {
+      logger.error({ err: matchingError, rideId: created.id }, 'Matching failed to start for new ride');
+    }
 
     return { ride: toRide(created), created: true };
   } catch (error) {

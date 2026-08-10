@@ -31,6 +31,15 @@ const envSchema = z.object({
   JWT_ACCESS_TOKEN_TTL: z.string().default('15m'),
   JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(30),
+
+  // Phase 8 — Matching Engine. The "response timer" a driver has to
+  // ACCEPT/DECLINE an offer before it's swept up as TIMEOUT, and how
+  // often the background sweep (src/index.ts) checks for expired offers.
+  // Short defaults are deliberate: this environment has no real drivers
+  // idling on a timer, so tests and manual verification should not need
+  // to wait long to see a timeout happen.
+  MATCHING_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(15),
+  MATCHING_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
 });
 
 export type Env = z.infer<typeof envSchema>;

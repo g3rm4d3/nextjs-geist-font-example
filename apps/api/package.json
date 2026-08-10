@@ -19,6 +19,7 @@
     "@rideshare/database": "*",
     "@rideshare/logging": "*",
     "@rideshare/maps": "*",
+    "@rideshare/matching": "*",
     "@rideshare/pricing": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",

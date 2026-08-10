@@ -32,6 +32,11 @@ export async function findActiveRideForPassenger(
   return row;
 }
 
+export async function findRideById(rideId: string): Promise<RideRow | undefined> {
+  const [row] = await db.select().from(schema.rides).where(eq(schema.rides.id, rideId)).limit(1);
+  return row;
+}
+
 export async function findRideByIdempotencyKey(
   passengerId: string,
   idempotencyKey: string,

@@ -1,0 +1,22 @@
+{
+  "name": "@rideshare/matching",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Server-only ride-driver matching primitives: candidate scoring and expanding-radius search. Pure functions — no I/O, no external dependencies.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

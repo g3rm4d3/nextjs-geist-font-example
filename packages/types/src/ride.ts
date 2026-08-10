@@ -58,3 +58,17 @@ export interface Ride {
   estimatedFareCents: number | null;
   requestedAt: string;
 }
+
+/**
+ * Phase 8: what GET /drivers/me/offer returns to a driver with a
+ * currently-open (OFFERED) ride_requests row — the ride details they
+ * need to decide, plus how long they have left to respond. `id` here is
+ * the ride_request's id (what POST .../accept and .../decline take as
+ * a path param), not the ride's id — the ride's own id is nested inside
+ * `ride`.
+ */
+export interface RideOffer {
+  id: string;
+  ride: Ride;
+  expiresAt: string;
+}

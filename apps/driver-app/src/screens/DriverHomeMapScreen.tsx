@@ -4,7 +4,7 @@ import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from '
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { useAuth } from '../context/AuthContext';
 import { useDriverProfile } from '../context/DriverProfileContext';
-import { ApiClientError, reportLocation, setAvailability } from '../lib/apiClient';
+import { ApiClientError, getCurrentOffer, reportLocation, setAvailability } from '../lib/apiClient';
 import {
   getLocationProvider,
   type LocationPermissionState,
@@ -20,6 +20,13 @@ const FALLBACK_REGION: Region = {
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
+
+// Phase 8: how often this screen checks for a new ride offer while
+// ONLINE. There's no push-notification infrastructure in this stage
+// (see docs/matching-engine.md's known limitations) — polling from the
+// driver's own landing screen is the closest honest substitute, similar
+// in spirit to the location-ping cadence above.
+const OFFER_POLL_INTERVAL_MS = 4000;
 
 /**
  * The driver's main authenticated landing screen. Phase 5's core
@@ -46,6 +53,8 @@ export function DriverHomeMapScreen({ navigation }: Props) {
   const [permission, setPermission] = useState<LocationPermissionState | null>(null);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const isOnline = profile?.availabilityStatus === 'ONLINE';
 
   // Refs mirror state the watchLocation callback below needs to read at
   // call time — that callback is set up once (empty dependency array,
@@ -112,6 +121,49 @@ export function DriverHomeMapScreen({ navigation }: Props) {
     };
   }, []);
 
+  // Phase 8: poll for a new offer while ONLINE, and hand off to
+  // IncomingRequestScreen the moment one exists. `hasNavigatedToOfferRef`
+  // stops repeated poll ticks from re-pushing that screen while the
+  // driver is already looking at it — native-stack keeps this screen
+  // mounted underneath, so its effects keep running in the background —
+  // and the `focus` listener resets it once the driver is back here,
+  // ready to catch the next offer.
+  const hasNavigatedToOfferRef = useRef(false);
+
+  useEffect(() => {
+    return navigation.addListener('focus', () => {
+      hasNavigatedToOfferRef.current = false;
+    });
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!isOnline || !accessToken) return undefined;
+
+    let cancelled = false;
+
+    async function poll() {
+      if (hasNavigatedToOfferRef.current || !accessToken) return;
+      try {
+        const offer = await getCurrentOffer(accessToken);
+        if (!cancelled && offer && !hasNavigatedToOfferRef.current) {
+          hasNavigatedToOfferRef.current = true;
+          navigation.navigate('IncomingRequest');
+        }
+      } catch {
+        // A failed poll just means this tick found nothing — the next
+        // tick tries again, same "self-heals" reasoning as the location
+        // reporting above; there's no retry queue for a stream that
+        // repeats itself every few seconds anyway.
+      }
+    }
+
+    const interval = setInterval(() => void poll(), OFFER_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isOnline, accessToken, navigation]);
+
   async function handleToggleAvailability() {
     if (!accessToken || !profile) return;
     setErrorMessage(null);
@@ -139,7 +191,6 @@ export function DriverHomeMapScreen({ navigation }: Props) {
       }
     : FALLBACK_REGION;
   const isApproved = profile?.onboardingStatus === 'APPROVED';
-  const isOnline = profile?.availabilityStatus === 'ONLINE';
 
   return (
     <View style={styles.container}>

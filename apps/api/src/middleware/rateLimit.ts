@@ -112,3 +112,14 @@ export const rideRequestLimiter = createLimiter({
   message: 'Too many ride requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 8: covers GET .../offer (polling) and the accept/decline actions.
+// Generous enough for a driver-app poll loop (a few seconds apart) plus
+// an occasional accept/decline, but still per-driver — same reasoning as
+// locationPingLimiter above, not IP-based.
+export const driverOfferLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 60,
+  message: 'Too many offer requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

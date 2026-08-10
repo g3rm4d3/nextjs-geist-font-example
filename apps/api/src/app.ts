@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
+import { driverOffersRouter } from './routes/driverOffers';
 import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
 import { passengersRouter } from './routes/passengers';
@@ -39,6 +40,7 @@ export function createApp(): Express {
   app.use(authRouter);
   app.use(passengersRouter);
   app.use(driversRouter);
+  app.use(driverOffersRouter);
   app.use(adminRouter);
   app.use(routePreviewRouter);
   app.use(pricingRouter);

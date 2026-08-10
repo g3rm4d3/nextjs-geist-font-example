@@ -4,6 +4,8 @@ import type {
   AuthUser,
   DriverProfileSummary,
   RecordLocationResult,
+  Ride,
+  RideOffer,
   Vehicle,
 } from '@rideshare/types';
 import type {
@@ -102,4 +104,24 @@ export function reportLocation(
   input: DriverLocationPingInput,
 ): Promise<RecordLocationResult> {
   return request<RecordLocationResult>('/drivers/me/location', { body: input, accessToken });
+}
+
+/**
+ * Phase 8: polled from DriverHomeMapScreen while ONLINE. `null` (not a
+ * 404) is the normal "nothing right now" response — see
+ * matchingService.getCurrentOffer on the API side.
+ */
+export function getCurrentOffer(accessToken: string): Promise<RideOffer | null> {
+  return request<RideOffer | null>('/drivers/me/offer', { method: 'GET', accessToken });
+}
+
+export function acceptOffer(accessToken: string, rideRequestId: string): Promise<Ride> {
+  return request<Ride>(`/drivers/me/offer/${rideRequestId}/accept`, { accessToken });
+}
+
+export function declineOffer(
+  accessToken: string,
+  rideRequestId: string,
+): Promise<{ declined: boolean }> {
+  return request<{ declined: boolean }>(`/drivers/me/offer/${rideRequestId}/decline`, { accessToken });
 }
