@@ -13,9 +13,11 @@ import { driverRidesRouter } from './routes/driverRides';
 import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
 import { passengersRouter } from './routes/passengers';
+import { paymentsRouter } from './routes/payments';
 import { pricingRouter } from './routes/pricing';
 import { ridesRouter } from './routes/rides';
 import { routePreviewRouter } from './routes/routePreview';
+import { webhooksRouter } from './routes/webhooks';
 
 /**
  * Builds the Express application without starting a listener, so tests can
@@ -27,7 +29,6 @@ export function createApp(): Express {
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ALLOWED_ORIGINS }));
-  app.use(express.json({ limit: '1mb' }));
   app.use(requestIdMiddleware);
   app.use(
     pinoHttp({
@@ -36,6 +37,16 @@ export function createApp(): Express {
       autoLogging: env.NODE_ENV !== 'test',
     }),
   );
+
+  // Mounted BEFORE the global express.json() body parser: Stripe signs
+  // the exact raw request body bytes (see routes/webhooks.ts), so this
+  // route must receive the body before anything parses/re-serializes it.
+  // Placed after requestIdMiddleware/pinoHttp above (not before) so
+  // webhook requests still get a requestId and get logged like every
+  // other request.
+  app.use(webhooksRouter);
+
+  app.use(express.json({ limit: '1mb' }));
 
   app.use(healthRouter);
   app.use(authRouter);
@@ -47,6 +58,7 @@ export function createApp(): Express {
   app.use(routePreviewRouter);
   app.use(pricingRouter);
   app.use(ridesRouter);
+  app.use(paymentsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -135,3 +135,25 @@ export const rideLifecycleLimiter = createLimiter({
   message: 'Too many requests for this ride. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 11: passenger-facing payment reads/retries + the passenger's own
+// default test payment method update. Same per-user (not per-IP)
+// reasoning as every limiter above that sits behind requireAuth.
+export const paymentLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many payment requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});
+
+// Phase 11: POST /webhooks/stripe has no authenticated caller — Stripe
+// itself calls it — so unlike every limiter above this is IP-keyed
+// (express-rate-limit's default), like login/register. Signature
+// verification (paymentService.handleStripeWebhookEvent) is what
+// actually rejects forged deliveries; this is just an outer backstop
+// against a flood of requests, generous enough for real webhook bursts.
+export const stripeWebhookLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 120,
+  message: 'Too many webhook deliveries. Try again in a moment.',
+});

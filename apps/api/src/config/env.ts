@@ -52,6 +52,15 @@ const envSchema = z.object({
   // and "keep a route history to compute actual distance from" are
   // different needs with different acceptable staleness.
   RIDE_LOCATION_SAMPLE_INTERVAL_MS: z.coerce.number().int().positive().default(10_000),
+
+  // Phase 11 — Payment Sandbox. Both optional: unset means "use the MOCK
+  // PaymentProvider" (see lib/paymentProvider.ts), which is the default
+  // in every environment here since there is no real (even TEST MODE)
+  // Stripe secret key this environment can provision or verify (see
+  // docs/payments.md). When STRIPE_SECRET_KEY is set it must be a TEST
+  // MODE key — createStripePaymentProvider enforces that itself.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,6 +1,7 @@
 import { haversineDistanceMeters } from '@rideshare/maps';
 import type { Ride, RideStatus } from '@rideshare/types';
 import { ConflictError, NotFoundError } from '../lib/errors';
+import { logger } from '../lib/logger';
 import { toRide } from '../lib/rideMapper';
 import { findRideLocationSamples } from '../repositories/rideLocationSamplesRepository';
 import {
@@ -13,6 +14,7 @@ import {
   findDriverProfileByUserId,
   findPassengerProfileByUserId,
 } from '../repositories/usersRepository';
+import { chargeRideFare } from './paymentService';
 import { getFareForActualTrip } from './pricingService';
 
 async function requireDriverId(userId: string): Promise<string> {
@@ -205,6 +207,18 @@ export async function completeRide(rideId: string, userId: string): Promise<Ride
 
   if (!updated) {
     throw new ConflictError('This ride is no longer in a state that allows this action');
+  }
+
+  // Phase 11: charge the passenger for the ride now that its final fare
+  // is authoritative. Best-effort, same as startMatching in rideService
+  // — a payment-provider hiccup must not fail ride completion itself;
+  // the ride is COMPLETED either way, and a failed charge is a real,
+  // visible payment_records row the passenger can retry (see
+  // paymentService.retryRidePayment), not a swallowed error.
+  try {
+    await chargeRideFare(rideId);
+  } catch (paymentError) {
+    logger.error({ err: paymentError, rideId }, 'Failed to charge payment for completed ride');
   }
 
   return toRide(updated);

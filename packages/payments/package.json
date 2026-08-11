@@ -1,0 +1,24 @@
+{
+  "name": "@rideshare/payments",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Payment provider abstraction (section 11) — Stripe TEST MODE only in Stage 1, never live transactions. Used server-side by apps/api so no secret key is ever embedded in a mobile client bundle.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "stripe": "^22.5.0"
+  },
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

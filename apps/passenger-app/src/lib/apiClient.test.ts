@@ -1,4 +1,11 @@
-import { ApiClientError, createRideRequest, login, previewRoute } from './apiClient';
+import {
+  ApiClientError,
+  createRideRequest,
+  getRidePayment,
+  login,
+  previewRoute,
+  updateDefaultPaymentMethod,
+} from './apiClient';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -102,6 +109,55 @@ describe('apiClient', () => {
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
         body: JSON.stringify(input),
+      }),
+    );
+  });
+
+  it('GETs a ride payment with the ride id in the path', async () => {
+    const mockPayment = {
+      id: 'pay_1',
+      rideId: 'ride_1',
+      status: 'SUCCEEDED',
+      amountCents: 865,
+      currency: 'usd',
+      failureReason: null,
+      refundedAt: null,
+      refundReason: null,
+      createdAt: new Date().toISOString(),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockPayment, requestId: 'req_5' }),
+    }) as unknown as typeof fetch;
+
+    const result = await getRidePayment('token-123', 'ride_1');
+
+    expect(result).toEqual(mockPayment);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rides/ride_1/payment'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('PATCHes the default test payment method', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () =>
+        Promise.resolve({ success: true, data: { updated: true }, requestId: 'req_6' }),
+    }) as unknown as typeof fetch;
+
+    const result = await updateDefaultPaymentMethod('token-123', {
+      testPaymentMethodId: 'pm_card_visa',
+    });
+
+    expect(result).toEqual({ updated: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/passengers/me/payment-method'),
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify({ testPaymentMethodId: 'pm_card_visa' }),
       }),
     );
   });

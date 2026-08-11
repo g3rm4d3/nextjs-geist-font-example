@@ -60,6 +60,30 @@ export async function findDriverProfileById(
   return profile;
 }
 
+/** By passenger_profiles.id rather than users.id — Phase 11's
+ * paymentService only has `ride.passengerId` (the profile id) on hand,
+ * mirroring findDriverProfileById above. */
+export async function findPassengerProfileById(
+  passengerId: string,
+): Promise<PassengerProfileRow | undefined> {
+  const [profile] = await db
+    .select()
+    .from(schema.passengerProfiles)
+    .where(eq(schema.passengerProfiles.id, passengerId))
+    .limit(1);
+  return profile;
+}
+
+export async function setPassengerDefaultTestPaymentMethod(
+  passengerProfileId: string,
+  testPaymentMethodId: string,
+): Promise<void> {
+  await db
+    .update(schema.passengerProfiles)
+    .set({ defaultTestPaymentMethodId: testPaymentMethodId, updatedAt: new Date() })
+    .where(eq(schema.passengerProfiles.id, passengerProfileId));
+}
+
 export interface CreatePassengerInput {
   email: string;
   passwordHash: string;

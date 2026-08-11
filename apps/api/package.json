@@ -20,6 +20,7 @@
     "@rideshare/logging": "*",
     "@rideshare/maps": "*",
     "@rideshare/matching": "*",
+    "@rideshare/payments": "*",
     "@rideshare/pricing": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",

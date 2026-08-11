@@ -1,12 +1,13 @@
-import type { AssignedRideDriverInfo, Ride } from '@rideshare/types';
+import type { AssignedRideDriverInfo, Payment, Ride } from '@rideshare/types';
 import { cancelRideSchema, createRideRequestSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { requireIdParam } from '../lib/params';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { rideLifecycleLimiter, rideRequestLimiter } from '../middleware/rateLimit';
+import { paymentLimiter, rideLifecycleLimiter, rideRequestLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
+import * as paymentService from '../services/paymentService';
 import * as rideLifecycleService from '../services/rideLifecycleService';
 import * as rideService from '../services/rideService';
 import * as rideTrackingService from '../services/rideTrackingService';
@@ -107,5 +108,44 @@ ridesRouter.post(
       req.body.reason,
     );
     sendSuccess(req, res, ride);
+  },
+);
+
+/**
+ * Section 11: read the current (latest) payment attempt for a ride.
+ * Charging itself is auto-triggered server-side on ride completion (see
+ * rideLifecycleService.completeRide) — there is no client-initiated
+ * "pay" action, only this read and the retry endpoint below.
+ */
+ridesRouter.get(
+  '/rides/:id/payment',
+  requireAuth,
+  requireRole('PASSENGER'),
+  paymentLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const payment: Payment = await paymentService.getPaymentForRide(rideId, req.auth.userId);
+    sendSuccess(req, res, payment);
+  },
+);
+
+/**
+ * Section 11: passenger-initiated retry after a FAILED payment attempt.
+ * paymentService.retryRidePayment enforces that only the ride's own
+ * passenger can retry, only for a COMPLETED ride, and only when the most
+ * recent attempt actually FAILED (never re-charging a SUCCEEDED payment
+ * or racing a PENDING one).
+ */
+ridesRouter.post(
+  '/rides/:id/payment/retry',
+  requireAuth,
+  requireRole('PASSENGER'),
+  paymentLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const payment: Payment = await paymentService.retryRidePayment(rideId, req.auth.userId);
+    sendSuccess(req, res, payment);
   },
 );

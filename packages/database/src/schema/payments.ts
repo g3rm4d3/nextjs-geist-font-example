@@ -1,4 +1,4 @@
-import { check, index, integer, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { primaryId, timestamps } from './_helpers';
 import { paymentStatusEnum } from './enums';
@@ -25,6 +25,10 @@ export const paymentRecords = pgTable(
     providerPaymentIntentId: text('provider_payment_intent_id'),
     idempotencyKey: text('idempotency_key').notNull(),
     failureReason: text('failure_reason'),
+    // Refund architecture (Phase 11): only full refunds are supported in
+    // Stage 1. `refundedAt` doubles as the "was this refunded" flag.
+    refundedAt: timestamp('refunded_at', { withTimezone: true }),
+    refundReason: text('refund_reason'),
     ...timestamps,
   },
   (table) => [

@@ -4,7 +4,9 @@ import type {
   AuthResponse,
   AuthUser,
   FareEstimate,
+  Payment,
   Ride,
+  TestPaymentMethodSummary,
 } from '@rideshare/types';
 import type { RoutePreview } from '@rideshare/maps';
 import type {
@@ -12,6 +14,7 @@ import type {
   LoginInput,
   RegisterPassengerInput,
   RoutePreviewInput,
+  UpdatePaymentMethodInput,
 } from '@rideshare/validation';
 import { env } from '../config/env';
 
@@ -124,4 +127,39 @@ export function getAssignedDriver(
     method: 'GET',
     accessToken,
   });
+}
+
+/**
+ * Phase 11: the catalog of Stripe TEST MODE payment method ids a
+ * passenger can pick as their default — see PaymentMethodsScreen.
+ */
+export function getTestPaymentMethods(accessToken: string): Promise<TestPaymentMethodSummary[]> {
+  return request<TestPaymentMethodSummary[]>('/payments/test-methods', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+export function updateDefaultPaymentMethod(
+  accessToken: string,
+  input: UpdatePaymentMethodInput,
+): Promise<{ updated: boolean }> {
+  return request<{ updated: boolean }>('/passengers/me/payment-method', {
+    method: 'PATCH',
+    body: input,
+    accessToken,
+  });
+}
+
+/**
+ * Phase 11: the current (latest) payment attempt for a ride — charging
+ * itself is auto-triggered server-side on completion, never a
+ * client-initiated action. See RideCompleteScreen.
+ */
+export function getRidePayment(accessToken: string, rideId: string): Promise<Payment> {
+  return request<Payment>(`/rides/${rideId}/payment`, { method: 'GET', accessToken });
+}
+
+export function retryRidePayment(accessToken: string, rideId: string): Promise<Payment> {
+  return request<Payment>(`/rides/${rideId}/payment/retry`, { accessToken });
 }
