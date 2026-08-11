@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type RideRow = typeof schema.rides.$inferSelect;
@@ -7,8 +7,11 @@ type RideStatusValue = RideRow['status'];
 type RideEventActorType = typeof schema.rideEvents.$inferInsert.actorType;
 
 /** Mirrors rides_one_active_per_passenger_key's WHERE clause exactly —
- * keep the two in sync if the ride status enum ever changes. */
-const ACTIVE_RIDE_STATUSES = [
+ * keep the two in sync if the ride status enum ever changes. Exported
+ * for the admin "active rides" listing (Phase 10), which needs the same
+ * non-terminal set at the whole-table level rather than scoped to one
+ * passenger/driver. */
+export const ACTIVE_RIDE_STATUSES = [
   'REQUESTED',
   'SEARCHING_DRIVER',
   'DRIVER_ASSIGNED',
@@ -36,6 +39,19 @@ export async function findActiveRideForPassenger(
 
 export async function findRideById(rideId: string): Promise<RideRow | undefined> {
   const [row] = await db.select().from(schema.rides).where(eq(schema.rides.id, rideId)).limit(1);
+  return row;
+}
+
+/** Mirrors findActiveRideForPassenger, by driver instead — Phase 10
+ * uses this to find which ride (if any) a location ping's route sample
+ * should be attributed to. A driver has at most one active ride by
+ * construction (Phase 8 only ever assigns one at a time). */
+export async function findActiveRideForDriver(driverId: string): Promise<RideRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(schema.rides)
+    .where(and(eq(schema.rides.driverId, driverId), inArray(schema.rides.status, ACTIVE_RIDE_STATUSES)))
+    .limit(1);
   return row;
 }
 
@@ -229,4 +245,55 @@ export async function advanceRideStatus(
 
     return updated;
   });
+}
+
+export interface ActiveRideAdminRow {
+  id: string;
+  status: RideStatusValue;
+  driverId: string | null;
+  passengerFirstName: string;
+  passengerLastName: string;
+  driverFirstName: string | null;
+  driverLastName: string | null;
+  pickupAddress: string;
+  pickupLat: number;
+  pickupLng: number;
+  destinationAddress: string;
+  destinationLat: number;
+  destinationLng: number;
+  requestedAt: Date;
+}
+
+/**
+ * Section 10: "Admin: show active rides." Every non-terminal ride
+ * (`ACTIVE_RIDE_STATUSES`), newest-first, with just enough passenger/
+ * driver identity to label a row — not a vehicle (a driver's active
+ * vehicle is a separate, optional lookup the caller does per-row only
+ * for rows that actually have a driver assigned, avoiding a more complex
+ * multi-table join for a query that never returns more than a handful of
+ * rows at Stage 1's scale).
+ */
+export async function listActiveRides(): Promise<ActiveRideAdminRow[]> {
+  return db
+    .select({
+      id: schema.rides.id,
+      status: schema.rides.status,
+      driverId: schema.rides.driverId,
+      passengerFirstName: schema.passengerProfiles.firstName,
+      passengerLastName: schema.passengerProfiles.lastName,
+      driverFirstName: schema.driverProfiles.firstName,
+      driverLastName: schema.driverProfiles.lastName,
+      pickupAddress: schema.rides.pickupAddress,
+      pickupLat: schema.rides.pickupLat,
+      pickupLng: schema.rides.pickupLng,
+      destinationAddress: schema.rides.destinationAddress,
+      destinationLat: schema.rides.destinationLat,
+      destinationLng: schema.rides.destinationLng,
+      requestedAt: schema.rides.requestedAt,
+    })
+    .from(schema.rides)
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .leftJoin(schema.driverProfiles, eq(schema.rides.driverId, schema.driverProfiles.id))
+    .where(inArray(schema.rides.status, ACTIVE_RIDE_STATUSES))
+    .orderBy(desc(schema.rides.requestedAt));
 }

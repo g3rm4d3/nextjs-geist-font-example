@@ -1,9 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useActiveRide } from '../context/ActiveRideContext';
 import { useAuth } from '../context/AuthContext';
 import { ApiClientError, cancelRideAsDriver, markArrived, markEnRoute } from '../lib/apiClient';
+import { getLocationProvider, type LocationSample } from '../lib/locationProvider';
+import { computeRegionForTwoPoints } from '../lib/mapRegion';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PickupNavigation'>;
@@ -14,17 +17,42 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PickupNavigation'>;
  * mount — "accepted the ride" and "started heading to pickup" are the
  * same moment for a driver, so there's no separate button for it — while
  * the second ("Arrived") is an explicit action, since only the driver
- * knows when they've actually reached the pickup point. Real turn-by-
- * turn navigation is Phase 10's "realtime ride experience," not this
- * screen's job — see docs/maps.md for why there's no live route drawn
- * here either.
+ * knows when they've actually reached the pickup point.
+ *
+ * Section 10's "show passenger pickup, navigation route": the map here
+ * draws a straight line from the driver's current position to the
+ * pickup point — an honest depiction of what the MOCK RouteProvider
+ * actually knows (distance/duration only, no real path; see
+ * docs/maps.md), not a turn-by-turn route. This screen's own location
+ * subscription is for *drawing the marker only* — DriverHomeMapScreen,
+ * still mounted underneath, is what actually reports position to the
+ * server (see its own doc comment for why that keeps running through an
+ * active ride now, not just while ONLINE).
  */
 export function PickupNavigationScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
   const { ride, setRide, clear } = useActiveRide();
+  const [driverSample, setDriverSample] = useState<LocationSample | null>(null);
   const [isMarkingArrived, setIsMarkingArrived] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const provider = getLocationProvider();
+
+    void provider.getCurrentLocation().then((result) => {
+      if (!cancelled) setDriverSample(result.sample);
+    });
+    const unsubscribe = provider.watchLocation((next) => {
+      if (!cancelled) setDriverSample(next);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Guards the mount-time en-route call against firing twice (React
   // Strict Mode double-invokes effects) and against re-firing if this
@@ -96,45 +124,69 @@ export function PickupNavigationScreen({ navigation }: Props) {
     );
   }
 
+  const pickupCoordinate = ride.pickup.coordinate;
+  const region = driverSample ? computeRegionForTwoPoints(driverSample, pickupCoordinate) : null;
+
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.statusLabel}>
-          {ride.status === 'DRIVER_ASSIGNED' ? 'Starting…' : 'Heading to pickup'}
-        </Text>
-        <Text style={styles.addressLabel}>{ride.pickup.label}</Text>
-      </View>
+      {region && (
+        <MapView style={styles.map} region={region}>
+          <Marker coordinate={driverSample!} title="You" pinColor="#fbbf24" />
+          <Marker coordinate={pickupCoordinate} title="Pickup" pinColor="#4ade80" />
+          <Polyline
+            coordinates={[driverSample!, pickupCoordinate]}
+            strokeColor="#fbbf24"
+            strokeWidth={3}
+            lineDashPattern={[8, 6]}
+          />
+        </MapView>
+      )}
 
-      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      <View style={styles.overlay} pointerEvents="box-none">
+        <View style={styles.card}>
+          <Text style={styles.statusLabel}>
+            {ride.status === 'DRIVER_ASSIGNED' ? 'Starting…' : 'Heading to pickup'}
+          </Text>
+          <Text style={styles.addressLabel}>{ride.pickup.label}</Text>
+        </View>
 
-      <View style={styles.actions}>
-        <Pressable
-          style={[styles.button, styles.cancelButton, isCancelling && styles.buttonDisabled]}
-          onPress={handleCancel}
-          disabled={isCancelling || isMarkingArrived}
-          testID="cancel-ride-button"
-        >
-          <Text style={styles.cancelButtonText}>Cancel ride</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.button, styles.primaryButton, isMarkingArrived && styles.buttonDisabled]}
-          onPress={handleArrived}
-          disabled={isMarkingArrived || isCancelling}
-          testID="arrived-button"
-        >
-          {isMarkingArrived ? (
-            <ActivityIndicator color="#1c1917" />
-          ) : (
-            <Text style={styles.primaryButtonText}>I&apos;ve arrived</Text>
-          )}
-        </Pressable>
+        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.button, styles.cancelButton, isCancelling && styles.buttonDisabled]}
+            onPress={handleCancel}
+            disabled={isCancelling || isMarkingArrived}
+            testID="cancel-ride-button"
+          >
+            <Text style={styles.cancelButtonText}>Cancel ride</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.button, styles.primaryButton, isMarkingArrived && styles.buttonDisabled]}
+            onPress={handleArrived}
+            disabled={isMarkingArrived || isCancelling}
+            testID="arrived-button"
+          >
+            {isMarkingArrived ? (
+              <ActivityIndicator color="#1c1917" />
+            ) : (
+              <Text style={styles.primaryButtonText}>I&apos;ve arrived</Text>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1c1917', padding: 20, justifyContent: 'space-between' },
+  container: { flex: 1, backgroundColor: '#1c1917' },
+  map: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  overlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: 20,
+  },
   centered: {
     flex: 1,
     backgroundColor: '#1c1917',

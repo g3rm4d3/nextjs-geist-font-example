@@ -2,6 +2,7 @@ import type { DriverProfileSummary, Vehicle } from '@rideshare/types';
 import type { UpdateAvailabilityInput, UpsertVehicleInput } from '@rideshare/validation';
 import { ConflictError, ForbiddenError, ValidationError } from '../lib/errors';
 import { isUniqueViolation } from '../lib/pgErrors';
+import { toVehicle } from '../lib/vehicleMapper';
 import { findDriverProfileByUserId } from '../repositories/usersRepository';
 import {
   findActiveVehicleForDriver,
@@ -11,19 +12,6 @@ import {
   type DriverProfileRow,
   type VehicleRow,
 } from '../repositories/driversRepository';
-
-function toVehicle(row: VehicleRow): Vehicle {
-  return {
-    id: row.id,
-    make: row.make,
-    model: row.model,
-    year: row.year,
-    color: row.color,
-    licensePlate: row.licensePlate,
-    vin: row.vin,
-    seats: row.seats,
-  };
-}
 
 function toSummary(profile: DriverProfileRow, vehicle: VehicleRow | undefined): DriverProfileSummary {
   return {

@@ -1,6 +1,8 @@
+import { haversineDistanceMeters } from '@rideshare/maps';
 import type { Ride, RideStatus } from '@rideshare/types';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import { toRide } from '../lib/rideMapper';
+import { findRideLocationSamples } from '../repositories/rideLocationSamplesRepository';
 import {
   advanceRideStatus,
   findRideById,
@@ -99,6 +101,28 @@ async function driverTransition(
   return toRide(updated);
 }
 
+/** Sums consecutive-sample haversine distances from `ride_location_samples`
+ * into a measured trip distance. Falls back to the pre-trip route
+ * estimate when there are fewer than two samples — one point alone has
+ * no distance to measure, and zero points means recordRouteSampleIfDue
+ * never got a chance to run (a very short ride, or GPS pings that never
+ * arrived during it). */
+async function computeActualDistanceMeters(
+  rideId: string,
+  estimatedDistanceMeters: number | null,
+): Promise<number> {
+  const samples = await findRideLocationSamples(rideId);
+  if (samples.length < 2) {
+    return estimatedDistanceMeters ?? 0;
+  }
+
+  let totalMeters = 0;
+  for (let i = 1; i < samples.length; i += 1) {
+    totalMeters += haversineDistanceMeters(samples[i - 1]!, samples[i]!);
+  }
+  return Math.round(totalMeters);
+}
+
 export async function markEnRoute(rideId: string, userId: string): Promise<Ride> {
   return driverTransition(rideId, userId, FORWARD_FROM_STATUS.markEnRoute, 'DRIVER_EN_ROUTE');
 }
@@ -131,10 +155,19 @@ export async function startTrip(rideId: string, userId: string): Promise<Ride> {
  * rules.
  *
  * The final fare is computed the same server-authoritative way as the
- * estimate (section 3) but from the trip's *actual* duration/distance —
- * see pricingService.getFareForActualTrip for what "actual" means with
- * no live route tracking in Stage 1 (duration is genuinely real elapsed
- * time; distance reuses the pre-trip estimate — documented limitation).
+ * estimate (section 3) but from the trip's *actual* duration/distance.
+ * `actualDurationSeconds` is genuinely real elapsed wall-clock time
+ * (started_at to now). `actualDistanceMeters` is now genuinely measured
+ * too, as of Phase 10: the sum of consecutive-sample haversine distances
+ * from `ride_location_samples` (see locationService.recordRouteSampleIfDue
+ * for how those get recorded, throttled by RIDE_LOCATION_SAMPLE_INTERVAL_MS).
+ * That sum still undercounts true road distance the same way any
+ * straight-line-segment approximation does — finer sampling would track
+ * closer, at the storage-growth cost "do not persist unnecessary high-
+ * frequency data" exists to bound — but it is a real measurement now,
+ * not a guess. Falls back to the pre-trip route estimate only when fewer
+ * than two samples exist (e.g. a ride completed faster than one sampling
+ * interval, common in manual/test runs) — see docs/realtime-ride-experience.md.
  */
 export async function completeRide(rideId: string, userId: string): Promise<Ride> {
   const driverId = await requireDriverId(userId);
@@ -151,7 +184,7 @@ export async function completeRide(rideId: string, userId: string): Promise<Ride
     1,
     Math.round((now.getTime() - ride.startedAt.getTime()) / 1000),
   );
-  const actualDistanceMeters = ride.estimatedDistanceMeters ?? 0;
+  const actualDistanceMeters = await computeActualDistanceMeters(rideId, ride.estimatedDistanceMeters);
   const fare = await getFareForActualTrip(actualDistanceMeters, actualDurationSeconds);
 
   const updated = await advanceRideStatus({

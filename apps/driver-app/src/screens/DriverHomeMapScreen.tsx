@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
+import { useActiveRide } from '../context/ActiveRideContext';
 import { useAuth } from '../context/AuthContext';
 import { useDriverProfile } from '../context/DriverProfileContext';
 import { ApiClientError, getCurrentOffer, reportLocation, setAvailability } from '../lib/apiClient';
@@ -40,15 +41,25 @@ const OFFER_POLL_INTERVAL_MS = 4000;
  * or a configurable mock (EXPO_PUBLIC_MOCK_GPS). Phase 6 wires that
  * position to the server: every sample from the same long-lived watch
  * subscription that drives the map marker is also POSTed to
- * /drivers/me/location, but only while the driver is actually ONLINE,
- * permission is granted, and the app is foregrounded — see the
- * `shouldReport` check below for how each of Phase 6's "handle: stale
- * GPS / missing permissions / network interruption / background-
- * foreground" cases maps to a concrete guard.
+ * /drivers/me/location, but only while the driver is actually ONLINE
+ * *or* has an active ride, permission is granted, and the app is
+ * foregrounded — see the `shouldReport` check below for how each of
+ * Phase 6's "handle: stale GPS / missing permissions / network
+ * interruption / background-foreground" cases maps to a concrete guard.
+ *
+ * "ONLINE *or* has an active ride" (not just ONLINE) is a Phase 10 fix:
+ * accepting an offer flips a driver to BUSY (Phase 8), and this screen's
+ * ping loop originally only ran while ONLINE — meaning a driver stopped
+ * reporting their position the instant they picked up a ride, exactly
+ * when the passenger's live tracking (Phase 10's own "driver location")
+ * needs it most. This screen keeps running underneath the ride-lifecycle
+ * screens (native-stack keeps prior screens mounted), so the same watch
+ * subscription can just keep reporting through the whole ride.
  */
 export function DriverHomeMapScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
   const { profile, setProfile } = useDriverProfile();
+  const { ride } = useActiveRide();
   const [sample, setSample] = useState<LocationSample | null>(null);
   const [permission, setPermission] = useState<LocationPermissionState | null>(null);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
@@ -61,12 +72,18 @@ export function DriverHomeMapScreen({ navigation }: Props) {
   // since re-subscribing to GPS on every availability/token change would
   // be wasteful) and would otherwise close over stale values.
   const isOnlineRef = useRef(false);
+  const hasActiveRideRef = useRef(false);
   const permissionRef = useRef<LocationPermissionState | null>(null);
   const accessTokenRef = useRef<string | null>(accessToken);
 
   useEffect(() => {
     isOnlineRef.current = profile?.availabilityStatus === 'ONLINE';
   }, [profile?.availabilityStatus]);
+
+  useEffect(() => {
+    hasActiveRideRef.current =
+      !!ride && ride.status !== 'COMPLETED' && !ride.status.startsWith('CANCELLED');
+  }, [ride]);
 
   useEffect(() => {
     permissionRef.current = permission;
@@ -105,7 +122,7 @@ export function DriverHomeMapScreen({ navigation }: Props) {
       // tick tries again on its own, no retry queue needed for a
       // stream that self-heals every few seconds.
       const shouldReport =
-        isOnlineRef.current &&
+        (isOnlineRef.current || hasActiveRideRef.current) &&
         permissionRef.current === 'granted' &&
         accessTokenRef.current &&
         AppState.currentState === 'active';

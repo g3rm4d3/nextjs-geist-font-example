@@ -1,4 +1,11 @@
-import type { ApiResponse, AuthResponse, AuthUser, FareEstimate, Ride } from '@rideshare/types';
+import type {
+  ApiResponse,
+  AssignedRideDriverInfo,
+  AuthResponse,
+  AuthUser,
+  FareEstimate,
+  Ride,
+} from '@rideshare/types';
 import type { RoutePreview } from '@rideshare/maps';
 import type {
   CreateRideRequestInput,
@@ -93,6 +100,28 @@ export function createRideRequest(
 export function cancelRide(accessToken: string, rideId: string, reason?: string): Promise<Ride> {
   return request<Ride>(`/rides/${rideId}/cancel`, {
     body: reason ? { reason } : {},
+    accessToken,
+  });
+}
+
+/** Phase 9/10: the ride's current authoritative state — polled by
+ * SearchingDriver/DriverAssigned/RideTracking to learn about status
+ * changes made from the driver side. */
+export function getRide(accessToken: string, rideId: string): Promise<Ride> {
+  return request<Ride>(`/rides/${rideId}`, { method: 'GET', accessToken });
+}
+
+/**
+ * Phase 10: `null` (not a 404) whenever there's nothing to show yet or
+ * anymore — see rideTrackingService.getAssignedDriverInfo on the API
+ * side for exactly when that is.
+ */
+export function getAssignedDriver(
+  accessToken: string,
+  rideId: string,
+): Promise<AssignedRideDriverInfo | null> {
+  return request<AssignedRideDriverInfo | null>(`/rides/${rideId}/driver`, {
+    method: 'GET',
     accessToken,
   });
 }

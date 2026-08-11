@@ -46,6 +46,20 @@ export async function findDriverProfileByUserId(
   return profile;
 }
 
+/** By driver_profiles.id rather than users.id — Phase 10's
+ * rideTrackingService only has `ride.driverId` (the profile id) on hand,
+ * not the driver's own userId. */
+export async function findDriverProfileById(
+  driverId: string,
+): Promise<DriverProfileRow | undefined> {
+  const [profile] = await db
+    .select()
+    .from(schema.driverProfiles)
+    .where(eq(schema.driverProfiles.id, driverId))
+    .limit(1);
+  return profile;
+}
+
 export interface CreatePassengerInput {
   email: string;
   passwordHash: string;

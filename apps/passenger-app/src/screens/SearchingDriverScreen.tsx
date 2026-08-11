@@ -1,32 +1,56 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRideDraft } from '../context/RideDraftContext';
 import { ApiClientError, cancelRide } from '../lib/apiClient';
 import { formatCents, formatDistanceMiles, formatDurationMinutes } from '../lib/format';
+import { useRidePolling } from '../lib/useRidePolling';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SearchingDriver'>;
 
 /**
- * The ride created in Phase 7 now actually gets matched (Phase 8) and
- * moves through the driver lifecycle (Phase 9) — but this screen still
- * has no polling and no live status display; watching that unfold in
- * real time is explicitly Phase 10's "realtime ride experience" ("display
- * assigned driver... driver location... estimated arrival"), not this
- * one's. What Phase 9 *does* add here is the one thing squarely in its
- * own scope: "implement cancellation pathways" — a passenger stuck
- * waiting needs a way out, so there's a Cancel button, wired to the real
- * `POST /rides/:id/cancel` endpoint (legal up through DRIVER_ARRIVED
- * server-side; a 409 past that point, though nothing here can currently
- * *learn* it's past that point without the polling Phase 10 adds).
+ * Section 9's "implement cancellation pathways" (a Cancel button, wired
+ * to the real `POST /rides/:id/cancel`) plus, as of Phase 10, the
+ * `useRidePolling` loop that actually watches this ride move past
+ * `SEARCHING_DRIVER` — the "display assigned driver" flow starts the
+ * moment that poll sees `DRIVER_ASSIGNED` (or later) and navigates to
+ * `DriverAssignedScreen`, which owns everything from there. A
+ * driver/system cancellation reaching this screen (rare here — no driver
+ * is even assigned yet — but possible via `cancelRideBySystem`) resets
+ * the draft and returns to the map with a brief native alert.
  */
 export function SearchingDriverScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
-  const { pickup, destination, ride, reset } = useRideDraft();
+  const { pickup, destination, ride: draftRide, reset } = useRideDraft();
   const [isCancelling, setIsCancelling] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { ride: polledRide } = useRidePolling(accessToken, draftRide?.id ?? null);
+  const ride = polledRide ?? draftRide;
+
+  useEffect(() => {
+    if (!ride) return;
+
+    if (
+      ride.status === 'DRIVER_ASSIGNED' ||
+      ride.status === 'DRIVER_EN_ROUTE' ||
+      ride.status === 'DRIVER_ARRIVED'
+    ) {
+      navigation.navigate('DriverAssigned');
+      return;
+    }
+    if (ride.status === 'PASSENGER_ONBOARD' || ride.status === 'IN_PROGRESS') {
+      navigation.navigate('RideTracking');
+      return;
+    }
+    if (ride.status.startsWith('CANCELLED')) {
+      Alert.alert('Ride cancelled', 'This ride was cancelled.');
+      reset();
+      navigation.navigate('HomeMap');
+    }
+  }, [ride, navigation, reset]);
 
   const handleCancel = useCallback(async () => {
     if (!accessToken || !ride) return;
@@ -58,8 +82,7 @@ export function SearchingDriverScreen({ navigation }: Props) {
         <ActivityIndicator color="#fbbf24" size="large" style={styles.spinner} />
         <Text style={styles.title}>Searching for a driver…</Text>
         <Text style={styles.subtitle}>
-          This screen doesn&apos;t yet update live as your ride moves through matching and pickup —
-          that&apos;s Phase 10. Your request will keep progressing on the server in the meantime.
+          We&apos;ll bring you straight to your driver once one accepts.
         </Text>
       </View>
 

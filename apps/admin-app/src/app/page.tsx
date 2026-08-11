@@ -19,12 +19,24 @@ export default function DashboardPage() {
 
       <Link
         href="/live-map"
-        className="mt-6 inline-block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
+        className="mt-6 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
       >
         <span className="text-sm font-medium text-slate-500">Phase 6</span>
         <p className="mt-1 font-semibold">Live fleet map →</p>
         <p className="mt-1 text-sm text-slate-600">
           Watch virtual drivers move in real time. Requires an admin login.
+        </p>
+      </Link>
+
+      <Link
+        href="/rides"
+        className="mt-4 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
+      >
+        <span className="text-sm font-medium text-slate-500">Phase 10</span>
+        <p className="mt-1 font-semibold">Active rides →</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Every ride currently in progress — status, passenger, driver, vehicle. Requires an admin
+          login.
         </p>
       </Link>
     </main>

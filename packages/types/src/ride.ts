@@ -1,3 +1,6 @@
+import type { Vehicle } from './driver';
+import type { DriverLocation } from './location';
+
 /**
  * Section 12's ride lifecycle states — duplicated by hand from
  * packages/database/src/schema/enums.ts's rideStatusEnum, same
@@ -77,4 +80,41 @@ export interface RideOffer {
   id: string;
   ride: Ride;
   expiresAt: string;
+}
+
+/**
+ * Phase 10: what `GET /rides/:id/driver` returns to the ride's own
+ * passenger once a driver is assigned — `null` before that (still
+ * `SEARCHING_DRIVER`/`REQUESTED`) and *after* `COMPLETED`/cancellation
+ * (nothing left to track). `location` is `null` only in the edge case of
+ * an assigned driver who has never sent a single location ping — expected
+ * to be rare/transient, not a normal steady state.
+ *
+ * `firstName` only (section 10's own list: "driver first name," not a
+ * full name) — the client renders a placeholder avatar from it (an
+ * initial), not a real photo; see docs/realtime-ride-experience.md for
+ * why "driver photo placeholder/test photo" stops there in Stage 1.
+ */
+export interface AssignedRideDriverInfo {
+  firstName: string;
+  vehicle: Vehicle | null;
+  location: DriverLocation | null;
+  /** Seconds to whichever point currently matters — pickup pre-onboard,
+   * destination once onboard — or `null` if it can't currently be
+   * computed (no location on file for this driver yet). */
+  estimatedArrivalSeconds: number | null;
+}
+
+/** Phase 10: one row of the admin "active rides" view (`GET
+ * /admin/rides/active`) — every non-terminal ride, driver/vehicle fields
+ * `null` until one is assigned. */
+export interface AdminActiveRide {
+  id: string;
+  status: RideStatus;
+  passengerName: string;
+  driverName: string | null;
+  vehicle: Vehicle | null;
+  pickup: NamedLocation;
+  destination: NamedLocation;
+  requestedAt: string;
 }

@@ -4,8 +4,9 @@ import type {
   FleetDriverLocation,
   RecordLocationResult,
 } from '@rideshare/types';
+import { env } from '../config/env';
 import { ValidationError } from '../lib/errors';
-import { findDriverProfileByUserId } from '../repositories/usersRepository';
+import { logger } from '../lib/logger';
 import {
   findDriverLocation,
   listFleetLocations,
@@ -13,6 +14,12 @@ import {
   type DriverLocationRow,
   type FleetLocationRow,
 } from '../repositories/locationsRepository';
+import {
+  findLatestRideLocationSample,
+  insertRideLocationSample,
+} from '../repositories/rideLocationSamplesRepository';
+import { findActiveRideForDriver } from '../repositories/ridesRepository';
+import { findDriverProfileByUserId } from '../repositories/usersRepository';
 
 /**
  * A location older than this is still returned (never hidden) but
@@ -43,7 +50,10 @@ const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000; // 5 minutes
  */
 const MIN_WRITE_INTERVAL_MS = 2000;
 
-function toDriverLocation(row: DriverLocationRow | FleetLocationRow): DriverLocation {
+/** Exported for rideTrackingService (Phase 10), which needs the exact
+ * same row -> DriverLocation + isStale mapping for a driver's current
+ * position while showing a passenger their assigned driver. */
+export function toDriverLocation(row: DriverLocationRow | FleetLocationRow): DriverLocation {
   const isStale = Date.now() - row.recordedAt.getTime() > STALE_THRESHOLD_MS;
   return {
     latitude: row.latitude,
@@ -85,11 +95,62 @@ export async function recordLocation(
   const existing = await findDriverLocation(driverId);
   const sinceLastWrite = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
 
-  if (existing && sinceLastWrite < MIN_WRITE_INTERVAL_MS) {
-    return { location: toDriverLocation(existing), written: false };
+  const result: RecordLocationResult =
+    existing && sinceLastWrite < MIN_WRITE_INTERVAL_MS
+      ? { location: toDriverLocation(existing), written: false }
+      : {
+          location: toDriverLocation(
+            await upsertDriverLocation(driverId, {
+              latitude: ping.latitude,
+              longitude: ping.longitude,
+              heading: ping.heading ?? null,
+              speed: ping.speed ?? null,
+              accuracy: ping.accuracy ?? null,
+              recordedAt,
+            }),
+          ),
+          written: true,
+        };
+
+  // Phase 10: "track actual ride ... route samples", independently
+  // throttled and gated to a ride that's actually IN_PROGRESS — see
+  // recordRouteSampleIfDue. Best-effort: a failure here (or simply this
+  // driver having no active ride, the overwhelmingly common case) must
+  // never fail the location ping itself, which every driver-app poll
+  // depends on succeeding regardless of ride state.
+  try {
+    await recordRouteSampleIfDue(driverId, ping, recordedAt);
+  } catch (error) {
+    logger.error({ err: error, driverId }, 'Failed to record ride location sample');
   }
 
-  const row = await upsertDriverLocation(driverId, {
+  return result;
+}
+
+/**
+ * "Use configurable GPS sampling. Do not persist unnecessary high-
+ * frequency data." — a second, coarser throttle (RIDE_LOCATION_SAMPLE_INTERVAL_MS,
+ * independent of MIN_WRITE_INTERVAL_MS above) governing how often a
+ * breadcrumb is appended to `ride_location_samples` for the ride
+ * currently IN_PROGRESS, if any. Deliberately scoped to IN_PROGRESS only
+ * — not DRIVER_EN_ROUTE/DRIVER_ARRIVED — matching Phase 9's own
+ * definition of "the actual ride" as the started_at..completed_at
+ * window; a driver navigating to pickup is not yet "on the ride" this
+ * table is a history of.
+ */
+async function recordRouteSampleIfDue(
+  driverId: string,
+  ping: DriverLocationPing,
+  recordedAt: Date,
+): Promise<void> {
+  const activeRide = await findActiveRideForDriver(driverId);
+  if (!activeRide || activeRide.status !== 'IN_PROGRESS') return;
+
+  const latestSample = await findLatestRideLocationSample(activeRide.id);
+  const sinceLastSample = latestSample ? Date.now() - latestSample.recordedAt.getTime() : Infinity;
+  if (sinceLastSample < env.RIDE_LOCATION_SAMPLE_INTERVAL_MS) return;
+
+  await insertRideLocationSample(activeRide.id, {
     latitude: ping.latitude,
     longitude: ping.longitude,
     heading: ping.heading ?? null,
@@ -97,8 +158,6 @@ export async function recordLocation(
     accuracy: ping.accuracy ?? null,
     recordedAt,
   });
-
-  return { location: toDriverLocation(row), written: true };
 }
 
 export async function getFleetLocations(): Promise<FleetDriverLocation[]> {

@@ -40,6 +40,18 @@ const envSchema = z.object({
   // to wait long to see a timeout happen.
   MATCHING_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(15),
   MATCHING_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+
+  // Phase 10 — Realtime Ride Experience. "Use configurable GPS sampling"
+  // / "do not persist unnecessary high-frequency data": a driver's
+  // current position (driver_locations) is still upserted on every ping
+  // (throttled by locationService's own fixed 2s interval, unchanged
+  // since Phase 6) — this is a *second*, coarser throttle governing only
+  // how often a historical breadcrumb (ride_location_samples) is written
+  // for the ride currently IN_PROGRESS. Deliberately independent and
+  // separately configurable: "show me where the driver is right now"
+  // and "keep a route history to compute actual distance from" are
+  // different needs with different acceptable staleness.
+  RIDE_LOCATION_SAMPLE_INTERVAL_MS: z.coerce.number().int().positive().default(10_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

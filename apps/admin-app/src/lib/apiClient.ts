@@ -1,4 +1,5 @@
 import type {
+  AdminActiveRide,
   ApiResponse,
   AuthResponse,
   AuthUser,
@@ -71,6 +72,14 @@ export function getMe(accessToken: string): Promise<AuthUser> {
 /** Phase 6: "Admin App should display virtual drivers on map." */
 export function getFleetLocations(accessToken: string): Promise<FleetDriverLocation[]> {
   return request<FleetDriverLocation[]>('/admin/drivers/locations', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+/** Phase 10: "Admin: show active rides." */
+export function getActiveRides(accessToken: string): Promise<AdminActiveRide[]> {
+  return request<AdminActiveRide[]>('/admin/rides/active', {
     method: 'GET',
     accessToken,
   });

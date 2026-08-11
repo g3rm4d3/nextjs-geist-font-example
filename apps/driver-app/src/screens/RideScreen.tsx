@@ -1,9 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useActiveRide } from '../context/ActiveRideContext';
 import { useAuth } from '../context/AuthContext';
 import { ApiClientError, completeRide } from '../lib/apiClient';
+import { getLocationProvider, type LocationSample } from '../lib/locationProvider';
+import { computeRegionForTwoPoints } from '../lib/mapRegion';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Ride'>;
@@ -12,14 +15,40 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Ride'>;
  * IN_PROGRESS. No cancel action here on purpose — DRIVER_CANCELLABLE_
  * STATUSES (rideLifecycleService) stops at DRIVER_ARRIVED; once the trip
  * has started, a plain cancel no longer applies to either side (section 9),
- * so this screen only ever has one way forward. Live route/ETA display is
- * Phase 10's "realtime ride experience," not this one's.
+ * so this screen only ever has one way forward.
+ *
+ * Section 10's "destination after appropriate ride stage": the map's
+ * target switches from pickup (PickupNavigationScreen) to destination
+ * here — the straight line drawn is the same honest MOCK-route depiction
+ * as that screen's, not real turn-by-turn navigation. This screen's own
+ * location subscription draws the marker only; DriverHomeMapScreen
+ * (still mounted underneath) is what actually reports position to the
+ * server, which is also what feeds Phase 10's route-sample recording
+ * (rideLocationSamples) while this ride is IN_PROGRESS.
  */
 export function RideScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
   const { ride, setRide } = useActiveRide();
+  const [driverSample, setDriverSample] = useState<LocationSample | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const provider = getLocationProvider();
+
+    void provider.getCurrentLocation().then((result) => {
+      if (!cancelled) setDriverSample(result.sample);
+    });
+    const unsubscribe = provider.watchLocation((next) => {
+      if (!cancelled) setDriverSample(next);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   const handleComplete = useCallback(async () => {
     if (!accessToken || !ride) return;
@@ -51,33 +80,59 @@ export function RideScreen({ navigation }: Props) {
     );
   }
 
+  const destinationCoordinate = ride.destination.coordinate;
+  const region = driverSample
+    ? computeRegionForTwoPoints(driverSample, destinationCoordinate)
+    : null;
+
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.statusLabel}>Trip in progress</Text>
-        <Text style={styles.addressLabel}>{ride.destination.label}</Text>
+      {region && (
+        <MapView style={styles.map} region={region}>
+          <Marker coordinate={driverSample!} title="You" pinColor="#fbbf24" />
+          <Marker coordinate={destinationCoordinate} title="Destination" pinColor="#60a5fa" />
+          <Polyline
+            coordinates={[driverSample!, destinationCoordinate]}
+            strokeColor="#60a5fa"
+            strokeWidth={3}
+            lineDashPattern={[8, 6]}
+          />
+        </MapView>
+      )}
+
+      <View style={styles.overlay} pointerEvents="box-none">
+        <View style={styles.card}>
+          <Text style={styles.statusLabel}>Trip in progress</Text>
+          <Text style={styles.addressLabel}>{ride.destination.label}</Text>
+        </View>
+
+        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+
+        <Pressable
+          style={[styles.button, isCompleting && styles.buttonDisabled]}
+          onPress={handleComplete}
+          disabled={isCompleting}
+          testID="complete-ride-button"
+        >
+          {isCompleting ? (
+            <ActivityIndicator color="#1c1917" />
+          ) : (
+            <Text style={styles.buttonText}>Complete ride</Text>
+          )}
+        </Pressable>
       </View>
-
-      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-
-      <Pressable
-        style={[styles.button, isCompleting && styles.buttonDisabled]}
-        onPress={handleComplete}
-        disabled={isCompleting}
-        testID="complete-ride-button"
-      >
-        {isCompleting ? (
-          <ActivityIndicator color="#1c1917" />
-        ) : (
-          <Text style={styles.buttonText}>Complete ride</Text>
-        )}
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1c1917', padding: 20, justifyContent: 'space-between' },
+  container: { flex: 1, backgroundColor: '#1c1917' },
+  map: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  overlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: 20,
+  },
   centered: {
     flex: 1,
     backgroundColor: '#1c1917',

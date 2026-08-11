@@ -1,4 +1,4 @@
-import type { Ride } from '@rideshare/types';
+import type { AssignedRideDriverInfo, Ride } from '@rideshare/types';
 import { cancelRideSchema, createRideRequestSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
@@ -9,6 +9,7 @@ import { rideLifecycleLimiter, rideRequestLimiter } from '../middleware/rateLimi
 import { validateBody } from '../middleware/validate';
 import * as rideLifecycleService from '../services/rideLifecycleService';
 import * as rideService from '../services/rideService';
+import * as rideTrackingService from '../services/rideTrackingService';
 
 export const ridesRouter = Router();
 
@@ -59,6 +60,27 @@ ridesRouter.get(
       'PASSENGER',
     );
     sendSuccess(req, res, ride);
+  },
+);
+
+/**
+ * Section 10: "display assigned driver ... driver location, estimated
+ * arrival." `null` data (200, not 404) is the normal "nothing to show
+ * yet/anymore" case — see rideTrackingService.getAssignedDriverInfo.
+ */
+ridesRouter.get(
+  '/rides/:id/driver',
+  requireAuth,
+  requireRole('PASSENGER'),
+  rideLifecycleLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const info: AssignedRideDriverInfo | null = await rideTrackingService.getAssignedDriverInfo(
+      rideId,
+      req.auth.userId,
+    );
+    sendSuccess(req, res, info);
   },
 );
 
