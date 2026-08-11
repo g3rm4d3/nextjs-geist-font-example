@@ -1,11 +1,13 @@
-import type { AdminActiveRide, FleetDriverLocation } from '@rideshare/types';
+import type { AdminActiveRide, FleetDriverLocation, PlatformRevenueSummary } from '@rideshare/types';
 import { Router } from 'express';
 import { sendSuccess } from '../lib/respond';
 import { toVehicle } from '../lib/vehicleMapper';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { earningsLimiter } from '../middleware/rateLimit';
 import { findActiveVehicleForDriver } from '../repositories/driversRepository';
 import { listActiveRides } from '../repositories/ridesRepository';
 import { listUsers } from '../repositories/usersRepository';
+import { getPlatformRevenueSummary } from '../services/earningsService';
 import { getFleetLocations } from '../services/locationService';
 
 export const adminRouter = Router();
@@ -94,5 +96,23 @@ adminRouter.get(
       }),
     );
     sendSuccess(req, res, rides);
+  },
+);
+
+/**
+ * Section 12: "Admin sees platform test revenue." Platform-wide
+ * equivalent of GET /drivers/me/earnings/summary — same
+ * today/week/month windows, plus an all-time total. Always Stripe TEST
+ * MODE money (section 1/11): this is a count of fictional test rides,
+ * never real revenue.
+ */
+adminRouter.get(
+  '/admin/revenue',
+  requireAuth,
+  requireRole('ADMIN', 'SUPER_ADMIN'),
+  earningsLimiter,
+  async (req, res) => {
+    const summary: PlatformRevenueSummary = await getPlatformRevenueSummary();
+    sendSuccess(req, res, summary);
   },
 );

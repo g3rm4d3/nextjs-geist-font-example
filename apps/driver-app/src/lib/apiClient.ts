@@ -2,6 +2,8 @@ import type {
   ApiResponse,
   AuthResponse,
   AuthUser,
+  DriverEarningsHistoryEntry,
+  DriverEarningsSummary,
   DriverProfileSummary,
   RecordLocationResult,
   Ride,
@@ -160,6 +162,22 @@ export function cancelRideAsDriver(
 ): Promise<Ride> {
   return request<Ride>(`/drivers/me/rides/${rideId}/cancel`, {
     body: reason ? { reason } : {},
+    accessToken,
+  });
+}
+
+/** Phase 12: "Driver sees: Today / Week / Month." */
+export function getEarningsSummary(accessToken: string): Promise<DriverEarningsSummary> {
+  return request<DriverEarningsSummary>('/drivers/me/earnings/summary', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+/** Phase 12: "Driver sees: ... Ride history." */
+export function getEarningsHistory(accessToken: string): Promise<DriverEarningsHistoryEntry[]> {
+  return request<DriverEarningsHistoryEntry[]>('/drivers/me/earnings/history', {
+    method: 'GET',
     accessToken,
   });
 }

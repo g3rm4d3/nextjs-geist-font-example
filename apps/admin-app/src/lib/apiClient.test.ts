@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiClientError, getFleetLocations, getMe, login } from './apiClient';
+import { ApiClientError, getFleetLocations, getMe, getPlatformRevenue, login } from './apiClient';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -105,6 +105,34 @@ describe('apiClient', () => {
     expect(result).toEqual(fleet);
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/admin/drivers/locations'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('fetches the platform revenue summary', async () => {
+    const zeroPeriod = {
+      rideCount: 0,
+      grossFareCents: 0,
+      platformCommissionCents: 0,
+      driverGrossEarningsCents: 0,
+      adjustmentsCents: 0,
+    };
+    const revenue = { today: zeroPeriod, week: zeroPeriod, month: zeroPeriod, allTime: zeroPeriod };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ success: true, data: revenue, requestId: 'req_5' }),
+      }),
+    );
+
+    const result = await getPlatformRevenue('token-123');
+
+    expect(result).toEqual(revenue);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/admin/revenue'),
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),

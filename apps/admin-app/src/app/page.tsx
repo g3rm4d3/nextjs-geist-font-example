@@ -39,6 +39,18 @@ export default function DashboardPage() {
           login.
         </p>
       </Link>
+
+      <Link
+        href="/revenue"
+        className="mt-4 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
+      >
+        <span className="text-sm font-medium text-slate-500">Phase 12</span>
+        <p className="mt-1 font-semibold">Platform revenue →</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Today/week/month/all-time platform commission from Stripe TEST MODE test rides. Requires
+          an admin login.
+        </p>
+      </Link>
     </main>
   );
 }

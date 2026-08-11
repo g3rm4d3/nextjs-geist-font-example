@@ -5,6 +5,7 @@ import type {
   AuthUser,
   FleetDriverLocation,
   HealthCheckResponse,
+  PlatformRevenueSummary,
 } from '@rideshare/types';
 import type { LoginInput } from '@rideshare/validation';
 
@@ -80,6 +81,14 @@ export function getFleetLocations(accessToken: string): Promise<FleetDriverLocat
 /** Phase 10: "Admin: show active rides." */
 export function getActiveRides(accessToken: string): Promise<AdminActiveRide[]> {
   return request<AdminActiveRide[]>('/admin/rides/active', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+/** Phase 12: "Admin sees platform test revenue." */
+export function getPlatformRevenue(accessToken: string): Promise<PlatformRevenueSummary> {
+  return request<PlatformRevenueSummary>('/admin/revenue', {
     method: 'GET',
     accessToken,
   });

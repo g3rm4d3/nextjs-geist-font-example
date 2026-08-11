@@ -14,6 +14,7 @@ import {
   findDriverProfileByUserId,
   findPassengerProfileByUserId,
 } from '../repositories/usersRepository';
+import { recordEarningsForCompletedRide } from './earningsService';
 import { chargeRideFare } from './paymentService';
 import { getFareForActualTrip } from './pricingService';
 
@@ -219,6 +220,18 @@ export async function completeRide(rideId: string, userId: string): Promise<Ride
     await chargeRideFare(rideId);
   } catch (paymentError) {
     logger.error({ err: paymentError, rideId }, 'Failed to charge payment for completed ride');
+  }
+
+  // Phase 12: record the driver's earnings ledger entry for this ride,
+  // from the exact same `fare` breakdown already computed above (never
+  // a second, possibly-drifting calculation). Best-effort for the same
+  // reason as chargeRideFare just above — the ride is COMPLETED
+  // regardless, and a missed ledger row would be a bug to fix, not a
+  // reason to fail the ride.
+  try {
+    await recordEarningsForCompletedRide(rideId, driverId, fare);
+  } catch (earningsError) {
+    logger.error({ err: earningsError, rideId }, 'Failed to record earnings for completed ride');
   }
 
   return toRide(updated);

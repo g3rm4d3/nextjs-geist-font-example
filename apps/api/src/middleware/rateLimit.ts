@@ -157,3 +157,15 @@ export const stripeWebhookLimiter = createLimiter({
   max: 120,
   message: 'Too many webhook deliveries. Try again in a moment.',
 });
+
+// Phase 12: driver earnings summary/history + the admin revenue read.
+// Same per-user (not per-IP) reasoning as every limiter above that sits
+// behind requireAuth — admins share office/VPN egress IPs just as
+// plausibly as drivers share cellular NAT (locationPingLimiter's own
+// reasoning), so per-identity is the right dimension here too.
+export const earningsLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many earnings requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

@@ -1,4 +1,11 @@
-import { ApiClientError, login, reportLocation, setAvailability } from './apiClient';
+import {
+  ApiClientError,
+  getEarningsHistory,
+  getEarningsSummary,
+  login,
+  reportLocation,
+  setAvailability,
+} from './apiClient';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -108,6 +115,60 @@ describe('apiClient', () => {
         method: 'POST',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
         body: JSON.stringify({ latitude: 40.7128, longitude: -74.006 }),
+      }),
+    );
+  });
+
+  it('GETs the earnings summary', async () => {
+    const mockSummary = {
+      today: { rideCount: 1, grossFareCents: 1200, platformCommissionCents: 240, driverGrossEarningsCents: 960, adjustmentsCents: 0 },
+      week: { rideCount: 3, grossFareCents: 3600, platformCommissionCents: 720, driverGrossEarningsCents: 2880, adjustmentsCents: 0 },
+      month: { rideCount: 10, grossFareCents: 12000, platformCommissionCents: 2400, driverGrossEarningsCents: 9600, adjustmentsCents: 0 },
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockSummary, requestId: 'req_5' }),
+    }) as unknown as typeof fetch;
+
+    const result = await getEarningsSummary('token-123');
+
+    expect(result).toEqual(mockSummary);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/drivers/me/earnings/summary'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('GETs the earnings history', async () => {
+    const mockHistory = [
+      {
+        id: 'de_1',
+        rideId: 'ride_1',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        pickupLabel: 'Home',
+        destinationLabel: 'Work',
+        grossFareCents: 1200,
+        platformCommissionCents: 240,
+        driverGrossEarningsCents: 960,
+        adjustmentsCents: 0,
+        payoutStatus: 'PENDING',
+        paymentStatus: 'SUCCEEDED',
+      },
+    ];
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockHistory, requestId: 'req_6' }),
+    }) as unknown as typeof fetch;
+
+    const result = await getEarningsHistory('token-123');
+
+    expect(result).toEqual(mockHistory);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/drivers/me/earnings/history'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
       }),
     );
   });
