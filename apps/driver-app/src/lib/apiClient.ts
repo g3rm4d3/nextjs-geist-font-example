@@ -5,15 +5,18 @@ import type {
   DriverEarningsHistoryEntry,
   DriverEarningsSummary,
   DriverProfileSummary,
+  Rating,
   RecordLocationResult,
   Ride,
   RideOffer,
+  RideRatings,
   Vehicle,
 } from '@rideshare/types';
 import type {
   DriverLocationPingInput,
   LoginInput,
   RegisterDriverInput,
+  SubmitRatingInput,
   UpdateAvailabilityInput,
   UpsertVehicleInput,
 } from '@rideshare/validation';
@@ -177,6 +180,23 @@ export function getEarningsSummary(accessToken: string): Promise<DriverEarningsS
 /** Phase 12: "Driver sees: ... Ride history." */
 export function getEarningsHistory(accessToken: string): Promise<DriverEarningsHistoryEntry[]> {
   return request<DriverEarningsHistoryEntry[]>('/drivers/me/earnings/history', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+/** Phase 13: "Driver rates Passenger." Only legal once the ride is
+ * COMPLETED — see RideCompleteScreen. */
+export function submitPassengerRating(
+  accessToken: string,
+  rideId: string,
+  input: SubmitRatingInput,
+): Promise<Rating> {
+  return request<Rating>(`/drivers/me/rides/${rideId}/rating`, { body: input, accessToken });
+}
+
+export function getRideRatings(accessToken: string, rideId: string): Promise<RideRatings> {
+  return request<RideRatings>(`/drivers/me/rides/${rideId}/ratings`, {
     method: 'GET',
     accessToken,
   });

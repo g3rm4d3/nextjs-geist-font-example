@@ -169,3 +169,15 @@ export const earningsLimiter = createLimiter({
   message: 'Too many earnings requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 13: rating submission/reads, both directions. Same per-user
+// reasoning as every limiter above — a passenger or driver only ever
+// submits a handful of ratings per ride, so this is a generous outer
+// backstop, not the mechanism enforcing "one rating per direction per
+// ride" (ratingsService + the DB's own unique index do that).
+export const ratingLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many rating requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

@@ -29,6 +29,13 @@
       "when": 1786440693298,
       "tag": "0003_dusty_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786591131857,
+      "tag": "0004_optimal_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

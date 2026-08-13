@@ -30,6 +30,15 @@ interface SeededDriver {
   vehicleId: string;
 }
 
+/** Running sum/count for an average — one map entry per ratee (driver or
+ * passenger profile id), folded into a single averageRating/ratingsCount
+ * write per profile once every ride has been seeded (applyDriverAggregates
+ * / applyPassengerAggregates below). */
+interface RatingTotals {
+  sum: number;
+  count: number;
+}
+
 async function main(): Promise<void> {
   const pool = createScriptPool();
   const db = createDbClient(pool);
@@ -308,7 +317,8 @@ async function seedRides(
   approvedDrivers: Array<SeededDriver & { vehicleId: string }>,
 ): Promise<void> {
   const driverRideCounts = new Map<string, number>();
-  const driverRatingTotals = new Map<string, { sum: number; count: number }>();
+  const driverRatingTotals = new Map<string, RatingTotals>();
+  const passengerRatingTotals = new Map<string, RatingTotals>();
   let rideIndex = 0;
 
   const shuffledPassengers = faker.helpers.shuffle([...passengers]);
@@ -329,6 +339,7 @@ async function seedRides(
       },
       driverRideCounts,
       driverRatingTotals,
+      passengerRatingTotals,
     );
   }
 
@@ -347,10 +358,12 @@ async function seedRides(
       },
       driverRideCounts,
       driverRatingTotals,
+      passengerRatingTotals,
     );
   }
 
   await applyDriverAggregates(db, driverRideCounts, driverRatingTotals);
+  await applyPassengerAggregates(db, passengerRatingTotals);
 }
 
 async function seedOneRide(
@@ -358,7 +371,8 @@ async function seedOneRide(
   rideIndex: number,
   input: NewRideInput,
   driverRideCounts: Map<string, number>,
-  driverRatingTotals: Map<string, { sum: number; count: number }>,
+  driverRatingTotals: Map<string, RatingTotals>,
+  passengerRatingTotals: Map<string, RatingTotals>,
 ): Promise<void> {
   const requestedAt = faker.date.recent({ days: 21 });
   const pickupLat = jitterCoordinate(SAMPLE_CITY_CENTER.lat);
@@ -458,6 +472,8 @@ async function seedOneRide(
     input.driver.userId,
     driverRatingTotals,
     input.driver.profileId,
+    passengerRatingTotals,
+    input.passengerProfileId,
   );
 }
 
@@ -617,8 +633,10 @@ async function seedRatings(
   rideId: string,
   passengerUserId: string,
   driverUserId: string,
-  driverRatingTotals: Map<string, { sum: number; count: number }>,
+  driverRatingTotals: Map<string, RatingTotals>,
   driverProfileId: string,
+  passengerRatingTotals: Map<string, RatingTotals>,
+  passengerProfileId: string,
 ): Promise<void> {
   const passengerToDriverStars = faker.number.int({ min: 3, max: 5 });
   const driverToPassengerStars = faker.number.int({ min: 3, max: 5 });
@@ -642,16 +660,21 @@ async function seedRatings(
     },
   ]);
 
-  const totals = driverRatingTotals.get(driverProfileId) ?? { sum: 0, count: 0 };
-  totals.sum += passengerToDriverStars;
-  totals.count += 1;
-  driverRatingTotals.set(driverProfileId, totals);
+  const driverTotals = driverRatingTotals.get(driverProfileId) ?? { sum: 0, count: 0 };
+  driverTotals.sum += passengerToDriverStars;
+  driverTotals.count += 1;
+  driverRatingTotals.set(driverProfileId, driverTotals);
+
+  const passengerTotals = passengerRatingTotals.get(passengerProfileId) ?? { sum: 0, count: 0 };
+  passengerTotals.sum += driverToPassengerStars;
+  passengerTotals.count += 1;
+  passengerRatingTotals.set(passengerProfileId, passengerTotals);
 }
 
 async function applyDriverAggregates(
   db: Database,
   driverRideCounts: Map<string, number>,
-  driverRatingTotals: Map<string, { sum: number; count: number }>,
+  driverRatingTotals: Map<string, RatingTotals>,
 ): Promise<void> {
   for (const [driverId, rideCount] of driverRideCounts.entries()) {
     const totals = driverRatingTotals.get(driverId);
@@ -661,10 +684,29 @@ async function applyDriverAggregates(
       .update(schema.driverProfiles)
       .set({
         totalRides: rideCount,
+        ratingsCount: totals?.count ?? 0,
         ...(averageRating ? { averageRating } : {}),
         updatedAt: sql`now()`,
       })
       .where(sql`${schema.driverProfiles.id} = ${driverId}`);
+  }
+}
+
+/** Symmetric counterpart to applyDriverAggregates — passenger_profiles
+ * has no rideCount analog (drivers have totalRides; the "how many rides
+ * has this passenger taken" question isn't this phase's concern), so
+ * only averageRating/ratingsCount get written here. */
+async function applyPassengerAggregates(
+  db: Database,
+  passengerRatingTotals: Map<string, RatingTotals>,
+): Promise<void> {
+  for (const [passengerId, totals] of passengerRatingTotals.entries()) {
+    const averageRating = (totals.sum / totals.count).toFixed(2);
+
+    await db
+      .update(schema.passengerProfiles)
+      .set({ ratingsCount: totals.count, averageRating, updatedAt: sql`now()` })
+      .where(sql`${schema.passengerProfiles.id} = ${passengerId}`);
   }
 }
 

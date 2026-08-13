@@ -103,6 +103,9 @@ export interface AssignedRideDriverInfo {
    * destination once onboard — or `null` if it can't currently be
    * computed (no location on file for this driver yet). */
   estimatedArrivalSeconds: number | null;
+  /** Phase 13's aggregate rating — null if this driver has no ratings
+   * yet (a new driver, or every passenger they've driven skipped it). */
+  averageRating: number | null;
 }
 
 /** Phase 10: one row of the admin "active rides" view (`GET

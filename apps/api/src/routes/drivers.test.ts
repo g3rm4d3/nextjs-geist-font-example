@@ -86,6 +86,8 @@ describe('GET /drivers/me/profile', () => {
       onboardingStatus: 'DRAFT',
       availabilityStatus: 'OFFLINE',
       vehicle: null,
+      averageRating: null,
+      ratingsCount: 0,
     });
   });
 

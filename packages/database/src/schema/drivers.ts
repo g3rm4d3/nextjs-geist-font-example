@@ -36,6 +36,11 @@ export const driverProfiles = pgTable(
       .notNull()
       .default('OFFLINE'),
     averageRating: numeric('average_rating', { precision: 3, scale: 2 }),
+    // Count of ratings actually received (Phase 13) — distinct from
+    // totalRides (count of completed rides, unrelated to whether the
+    // passenger rated any of them). Recomputed alongside averageRating
+    // whenever a new PASSENGER_TO_DRIVER rating lands.
+    ratingsCount: integer('ratings_count').notNull().default(0),
     totalRides: integer('total_rides').notNull().default(0),
     ...timestamps,
   },
@@ -45,6 +50,7 @@ export const driverProfiles = pgTable(
     index('driver_profiles_onboarding_status_idx').on(table.onboardingStatus),
     index('driver_profiles_availability_status_idx').on(table.availabilityStatus),
     check('driver_profiles_total_rides_non_negative_chk', sql`${table.totalRides} >= 0`),
+    check('driver_profiles_ratings_count_non_negative_chk', sql`${table.ratingsCount} >= 0`),
     // "Only APPROVED drivers may become available to receive rides."
     check(
       'driver_profiles_availability_requires_approval_chk',

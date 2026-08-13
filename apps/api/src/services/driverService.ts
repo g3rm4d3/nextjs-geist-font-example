@@ -18,6 +18,12 @@ function toSummary(profile: DriverProfileRow, vehicle: VehicleRow | undefined): 
     onboardingStatus: profile.onboardingStatus,
     availabilityStatus: profile.availabilityStatus,
     vehicle: vehicle ? toVehicle(vehicle) : null,
+    // Drizzle returns `numeric` columns as strings to avoid precision
+    // loss (see pricingService's own comment on the same pattern) —
+    // safe to convert here since this column only ever holds a 1-5 star
+    // average.
+    averageRating: profile.averageRating !== null ? Number(profile.averageRating) : null,
+    ratingsCount: profile.ratingsCount,
   };
 }
 

@@ -1,13 +1,19 @@
-import type { AssignedRideDriverInfo, Payment, Ride } from '@rideshare/types';
-import { cancelRideSchema, createRideRequestSchema } from '@rideshare/validation';
+import type { AssignedRideDriverInfo, Payment, Rating, Ride, RideRatings } from '@rideshare/types';
+import { cancelRideSchema, createRideRequestSchema, submitRatingSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { requireIdParam } from '../lib/params';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { paymentLimiter, rideLifecycleLimiter, rideRequestLimiter } from '../middleware/rateLimit';
+import {
+  paymentLimiter,
+  ratingLimiter,
+  rideLifecycleLimiter,
+  rideRequestLimiter,
+} from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
 import * as paymentService from '../services/paymentService';
+import * as ratingsService from '../services/ratingsService';
 import * as rideLifecycleService from '../services/rideLifecycleService';
 import * as rideService from '../services/rideService';
 import * as rideTrackingService from '../services/rideTrackingService';
@@ -147,5 +153,49 @@ ridesRouter.post(
     const rideId = requireIdParam(req.params.id, 'ride id');
     const payment: Payment = await paymentService.retryRidePayment(rideId, req.auth.userId);
     sendSuccess(req, res, payment);
+  },
+);
+
+/**
+ * Section 13: "Passenger rates Driver." 1-5 stars, optional comment —
+ * ratingsService enforces "ratings unavailable before ride completion"
+ * and "one rating per direction per completed ride" (409 for either
+ * violation), and recomputes the driver's aggregate rating server-side.
+ */
+ridesRouter.post(
+  '/rides/:id/rating',
+  requireAuth,
+  requireRole('PASSENGER'),
+  ratingLimiter,
+  validateBody(submitRatingSchema),
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const rating: Rating = await ratingsService.submitPassengerToDriverRating(
+      rideId,
+      req.auth.userId,
+      req.body,
+    );
+    sendSuccess(req, res, rating, 201);
+  },
+);
+
+/** Section 13: both directions' ratings for a ride the caller (as
+ * passenger) is part of — lets the passenger see their own submitted
+ * rating and whether the driver has rated them back. */
+ridesRouter.get(
+  '/rides/:id/ratings',
+  requireAuth,
+  requireRole('PASSENGER'),
+  ratingLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const ratings: RideRatings = await ratingsService.getRatingsForRide(
+      rideId,
+      req.auth.userId,
+      'PASSENGER',
+    );
+    sendSuccess(req, res, ratings);
   },
 );

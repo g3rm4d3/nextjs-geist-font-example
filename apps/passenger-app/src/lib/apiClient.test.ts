@@ -2,8 +2,10 @@ import {
   ApiClientError,
   createRideRequest,
   getRidePayment,
+  getRideRatings,
   login,
   previewRoute,
+  submitDriverRating,
   updateDefaultPaymentMethod,
 } from './apiClient';
 
@@ -158,6 +160,53 @@ describe('apiClient', () => {
         method: 'PATCH',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
         body: JSON.stringify({ testPaymentMethodId: 'pm_card_visa' }),
+      }),
+    );
+  });
+
+  it('POSTs a driver rating with stars and an optional comment', async () => {
+    const mockRating = {
+      id: 'rating_1',
+      rideId: 'ride_1',
+      direction: 'PASSENGER_TO_DRIVER',
+      stars: 5,
+      comment: 'Great ride!',
+      createdAt: new Date().toISOString(),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockRating, requestId: 'req_7' }),
+    }) as unknown as typeof fetch;
+
+    const result = await submitDriverRating('token-123', 'ride_1', {
+      stars: 5,
+      comment: 'Great ride!',
+    });
+
+    expect(result).toEqual(mockRating);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rides/ride_1/rating'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify({ stars: 5, comment: 'Great ride!' }),
+      }),
+    );
+  });
+
+  it('GETs both directions of ratings for a ride', async () => {
+    const mockRatings = { passengerToDriver: null, driverToPassenger: null };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockRatings, requestId: 'req_8' }),
+    }) as unknown as typeof fetch;
+
+    const result = await getRideRatings('token-123', 'ride_1');
+
+    expect(result).toEqual(mockRatings);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rides/ride_1/ratings'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
       }),
     );
   });

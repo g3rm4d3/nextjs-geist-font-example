@@ -1,12 +1,13 @@
-import type { Ride } from '@rideshare/types';
-import { cancelRideSchema } from '@rideshare/validation';
+import type { Rating, Ride, RideRatings } from '@rideshare/types';
+import { cancelRideSchema, submitRatingSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { requireIdParam } from '../lib/params';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { rideLifecycleLimiter } from '../middleware/rateLimit';
+import { ratingLimiter, rideLifecycleLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
+import * as ratingsService from '../services/ratingsService';
 import * as rideLifecycleService from '../services/rideLifecycleService';
 
 export const driverRidesRouter = Router();
@@ -128,5 +129,48 @@ driverRidesRouter.get(
     const rideId = requireIdParam(req.params.id, 'ride id');
     const ride: Ride = await rideLifecycleService.getRideForUser(rideId, req.auth.userId, 'DRIVER');
     sendSuccess(req, res, ride);
+  },
+);
+
+/**
+ * Section 13: "Driver rates Passenger." Mirrors POST /rides/:id/rating
+ * exactly — see ratingsService.submitDriverToPassengerRating for the
+ * same COMPLETED-only / one-per-direction enforcement and aggregate
+ * recomputation, applied to the passenger's profile instead.
+ */
+driverRidesRouter.post(
+  '/drivers/me/rides/:id/rating',
+  requireAuth,
+  requireRole('DRIVER'),
+  ratingLimiter,
+  validateBody(submitRatingSchema),
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const rating: Rating = await ratingsService.submitDriverToPassengerRating(
+      rideId,
+      req.auth.userId,
+      req.body,
+    );
+    sendSuccess(req, res, rating, 201);
+  },
+);
+
+/** Section 13: both directions' ratings for a ride the caller (as
+ * driver) is part of. */
+driverRidesRouter.get(
+  '/drivers/me/rides/:id/ratings',
+  requireAuth,
+  requireRole('DRIVER'),
+  ratingLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const rideId = requireIdParam(req.params.id, 'ride id');
+    const ratings: RideRatings = await ratingsService.getRatingsForRide(
+      rideId,
+      req.auth.userId,
+      'DRIVER',
+    );
+    sendSuccess(req, res, ratings);
   },
 );

@@ -1,10 +1,17 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { Payment } from '@rideshare/types';
+import type { Payment, RideRatings } from '@rideshare/types';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StarRatingInput } from '../components/StarRatingInput';
 import { useAuth } from '../context/AuthContext';
 import { useRideDraft } from '../context/RideDraftContext';
-import { ApiClientError, getRidePayment, retryRidePayment } from '../lib/apiClient';
+import {
+  ApiClientError,
+  getRidePayment,
+  getRideRatings,
+  retryRidePayment,
+  submitDriverRating,
+} from '../lib/apiClient';
 import { formatCents } from '../lib/format';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -33,16 +40,25 @@ const STATUS_COLOR: Record<Payment['status'], string> = {
  * ride reaches COMPLETED (rideLifecycleService.completeRide ->
  * paymentService.chargeRideFare) — there is no "pay" button here, only
  * a read of the resulting payment_records row and, if it FAILED, a
- * retry. The rating prompt this screen's stub also promised is Phase
- * 13's job, not this one's.
+ * retry. Below that, section 13's "Passenger rates Driver": 1-5 stars,
+ * optional comment, POST /rides/:id/rating — replaced with a read-only
+ * confirmation once GET /rides/:id/ratings shows a PASSENGER_TO_DRIVER
+ * row already exists (submitted from an earlier visit to this screen,
+ * or after the app was closed and reopened).
  */
 export function RideCompleteScreen({ navigation }: Props) {
   const { accessToken } = useAuth();
   const { ride, reset } = useRideDraft();
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [ratings, setRatings] = useState<RideRatings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [selectedStars, setSelectedStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken || !ride) return undefined;
@@ -72,7 +88,19 @@ export function RideCompleteScreen({ navigation }: Props) {
       }
     }
 
+    async function loadRatings(token: string, rideId: string) {
+      try {
+        const result = await getRideRatings(token, rideId);
+        if (!cancelled) setRatings(result);
+      } catch {
+        // Non-fatal: the rating form just stays in its default
+        // (unsubmitted) state — same self-healing reasoning as every
+        // other poll/fetch in these apps.
+      }
+    }
+
     void loadPayment(accessToken, ride.id);
+    void loadRatings(accessToken, ride.id);
 
     return () => {
       cancelled = true;
@@ -94,6 +122,28 @@ export function RideCompleteScreen({ navigation }: Props) {
       setIsRetrying(false);
     }
   }, [accessToken, ride]);
+
+  const handleSubmitRating = useCallback(async () => {
+    if (!accessToken || !ride || selectedStars === 0) return;
+    setRatingError(null);
+    setIsSubmittingRating(true);
+    try {
+      const rating = await submitDriverRating(accessToken, ride.id, {
+        stars: selectedStars,
+        ...(comment.trim() ? { comment: comment.trim() } : {}),
+      });
+      setRatings((prev) => ({
+        passengerToDriver: rating,
+        driverToPassenger: prev?.driverToPassenger ?? null,
+      }));
+    } catch (error) {
+      setRatingError(
+        error instanceof ApiClientError ? error.message : 'Could not submit your rating.',
+      );
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  }, [accessToken, ride, selectedStars, comment]);
 
   const handleDone = useCallback(() => {
     reset();
@@ -152,6 +202,54 @@ export function RideCompleteScreen({ navigation }: Props) {
         )}
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.rateTitle}>Rate your driver</Text>
+
+        {ratings?.passengerToDriver ? (
+          <View>
+            <StarRatingInput value={ratings.passengerToDriver.stars} onChange={() => undefined} disabled />
+            {ratings.passengerToDriver.comment && (
+              <Text style={styles.submittedComment}>&ldquo;{ratings.passengerToDriver.comment}&rdquo;</Text>
+            )}
+            <Text style={styles.thanksText}>Thanks for rating this ride.</Text>
+          </View>
+        ) : (
+          <View>
+            <StarRatingInput
+              value={selectedStars}
+              onChange={setSelectedStars}
+              disabled={isSubmittingRating}
+            />
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Add a comment (optional)"
+              placeholderTextColor="#64748b"
+              value={comment}
+              onChangeText={setComment}
+              multiline
+              editable={!isSubmittingRating}
+              testID="rating-comment-input"
+            />
+            {ratingError && <Text style={styles.errorText}>{ratingError}</Text>}
+            <Pressable
+              style={[
+                styles.submitRatingButton,
+                (selectedStars === 0 || isSubmittingRating) && styles.buttonDisabled,
+              ]}
+              disabled={selectedStars === 0 || isSubmittingRating}
+              onPress={() => void handleSubmitRating()}
+              testID="submit-rating-button"
+            >
+              {isSubmittingRating ? (
+                <ActivityIndicator color="#0f172a" />
+              ) : (
+                <Text style={styles.submitRatingButtonText}>Submit rating</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+
       <Pressable style={styles.doneButton} onPress={handleDone}>
         <Text style={styles.doneButtonText}>Done</Text>
       </Pressable>
@@ -194,4 +292,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneButtonText: { color: '#f8fafc', fontSize: 16, fontWeight: '700' },
+  rateTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700', marginBottom: 12 },
+  commentInput: {
+    backgroundColor: '#0f172a',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    color: '#f8fafc',
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  submitRatingButton: {
+    backgroundColor: '#fbbf24',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  submitRatingButtonText: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
+  submittedComment: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic', marginTop: 10 },
+  thanksText: { color: '#4ade80', fontSize: 13, marginTop: 10 },
 });

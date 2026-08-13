@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { DriverAvatarPlaceholder } from '../components/DriverAvatarPlaceholder';
+import { StarRatingDisplay } from '../components/StarRatingDisplay';
 import { useAuth } from '../context/AuthContext';
 import { useRideDraft } from '../context/RideDraftContext';
 import { ApiClientError, cancelRide, getAssignedDriver } from '../lib/apiClient';
@@ -133,7 +134,10 @@ export function DriverAssignedScreen({ navigation }: Props) {
             <View style={styles.driverRow}>
               <DriverAvatarPlaceholder firstName={driverInfo.firstName} />
               <View style={styles.driverInfo}>
-                <Text style={styles.driverName}>{driverInfo.firstName}</Text>
+                <View style={styles.driverNameRow}>
+                  <Text style={styles.driverName}>{driverInfo.firstName}</Text>
+                  <StarRatingDisplay averageRating={driverInfo.averageRating} />
+                </View>
                 {driverInfo.vehicle && (
                   <Text style={styles.vehicleLine}>
                     {driverInfo.vehicle.color} {driverInfo.vehicle.make} {driverInfo.vehicle.model}
@@ -192,6 +196,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#1e293b', borderRadius: 12, padding: 16, marginTop: 16 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   driverInfo: { flex: 1 },
+  driverNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   driverName: { color: '#f8fafc', fontSize: 16, fontWeight: '700' },
   vehicleLine: { color: '#cbd5e1', fontSize: 13, marginTop: 2 },
   plateLine: { color: '#94a3b8', fontSize: 12, marginTop: 2 },

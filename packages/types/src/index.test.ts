@@ -84,6 +84,8 @@ describe('shared API types', () => {
       onboardingStatus: 'DRAFT',
       availabilityStatus: 'OFFLINE',
       vehicle: null,
+      averageRating: null,
+      ratingsCount: 0,
     };
 
     expect(summary.vehicle).toBeNull();
@@ -93,6 +95,8 @@ describe('shared API types', () => {
     const summary: DriverProfileSummary = {
       onboardingStatus: 'APPROVED',
       availabilityStatus: 'ONLINE',
+      averageRating: 4.8,
+      ratingsCount: 12,
       vehicle: {
         id: 'veh_1',
         make: 'Toyota',

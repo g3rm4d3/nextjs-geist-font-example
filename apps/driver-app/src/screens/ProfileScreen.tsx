@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StarRatingDisplay } from '../components/StarRatingDisplay';
 import { useAuth } from '../context/AuthContext';
+import { useDriverProfile } from '../context/DriverProfileContext';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
@@ -17,12 +19,21 @@ const MENU_ITEMS: { label: string; screen: keyof RootStackParamList }[] = [
 
 export function ProfileScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
+  const { profile } = useDriverProfile();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.email}>{user?.email}</Text>
-        <Text style={styles.role}>{user?.role}</Text>
+        <View style={styles.roleRow}>
+          <Text style={styles.role}>{user?.role}</Text>
+          {profile && <StarRatingDisplay averageRating={profile.averageRating} />}
+        </View>
+        {profile && profile.ratingsCount > 0 && (
+          <Text style={styles.ratingsCount}>
+            {profile.ratingsCount} rating{profile.ratingsCount === 1 ? '' : 's'}
+          </Text>
+        )}
       </View>
 
       {MENU_ITEMS.map((item) => (
@@ -46,7 +57,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1c1917', padding: 20 },
   header: { marginBottom: 24 },
   email: { color: '#fafaf9', fontSize: 18, fontWeight: '700' },
-  role: { color: '#a8a29e', fontSize: 13, marginTop: 4 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  role: { color: '#a8a29e', fontSize: 13 },
+  ratingsCount: { color: '#78716c', fontSize: 12, marginTop: 2 },
   row: {
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,

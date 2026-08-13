@@ -26,4 +26,8 @@ export interface DriverProfileSummary {
   onboardingStatus: DriverOnboardingStatus;
   availabilityStatus: DriverAvailabilityStatus;
   vehicle: Vehicle | null;
+  /** Phase 13's aggregate rating — null until this driver has received
+   * their first PASSENGER_TO_DRIVER rating. */
+  averageRating: number | null;
+  ratingsCount: number;
 }

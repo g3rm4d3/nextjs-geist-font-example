@@ -5,7 +5,9 @@ import type {
   AuthUser,
   FareEstimate,
   Payment,
+  Rating,
   Ride,
+  RideRatings,
   TestPaymentMethodSummary,
 } from '@rideshare/types';
 import type { RoutePreview } from '@rideshare/maps';
@@ -14,6 +16,7 @@ import type {
   LoginInput,
   RegisterPassengerInput,
   RoutePreviewInput,
+  SubmitRatingInput,
   UpdatePaymentMethodInput,
 } from '@rideshare/validation';
 import { env } from '../config/env';
@@ -162,4 +165,18 @@ export function getRidePayment(accessToken: string, rideId: string): Promise<Pay
 
 export function retryRidePayment(accessToken: string, rideId: string): Promise<Payment> {
   return request<Payment>(`/rides/${rideId}/payment/retry`, { accessToken });
+}
+
+/** Phase 13: "Passenger rates Driver." Only legal once the ride is
+ * COMPLETED — see RideCompleteScreen. */
+export function submitDriverRating(
+  accessToken: string,
+  rideId: string,
+  input: SubmitRatingInput,
+): Promise<Rating> {
+  return request<Rating>(`/rides/${rideId}/rating`, { body: input, accessToken });
+}
+
+export function getRideRatings(accessToken: string, rideId: string): Promise<RideRatings> {
+  return request<RideRatings>(`/rides/${rideId}/ratings`, { method: 'GET', accessToken });
 }

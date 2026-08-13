@@ -2,9 +2,11 @@ import {
   ApiClientError,
   getEarningsHistory,
   getEarningsSummary,
+  getRideRatings,
   login,
   reportLocation,
   setAvailability,
+  submitPassengerRating,
 } from './apiClient';
 
 describe('apiClient', () => {
@@ -166,6 +168,50 @@ describe('apiClient', () => {
     expect(result).toEqual(mockHistory);
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/drivers/me/earnings/history'),
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+      }),
+    );
+  });
+
+  it('POSTs a passenger rating with stars and an optional comment', async () => {
+    const mockRating = {
+      id: 'rating_1',
+      rideId: 'ride_1',
+      direction: 'DRIVER_TO_PASSENGER',
+      stars: 4,
+      comment: null,
+      createdAt: new Date().toISOString(),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockRating, requestId: 'req_7' }),
+    }) as unknown as typeof fetch;
+
+    const result = await submitPassengerRating('token-123', 'ride_1', { stars: 4 });
+
+    expect(result).toEqual(mockRating);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/drivers/me/rides/ride_1/rating'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),
+        body: JSON.stringify({ stars: 4 }),
+      }),
+    );
+  });
+
+  it('GETs both directions of ratings for a ride', async () => {
+    const mockRatings = { passengerToDriver: null, driverToPassenger: null };
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, data: mockRatings, requestId: 'req_8' }),
+    }) as unknown as typeof fetch;
+
+    const result = await getRideRatings('token-123', 'ride_1');
+
+    expect(result).toEqual(mockRatings);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/drivers/me/rides/ride_1/ratings'),
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({ Authorization: 'Bearer token-123' }),

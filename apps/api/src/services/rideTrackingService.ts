@@ -81,5 +81,8 @@ export async function getAssignedDriverInfo(
     vehicle: vehicleRow ? toVehicle(vehicleRow) : null,
     location: locationRow ? toDriverLocation(locationRow) : null,
     estimatedArrivalSeconds,
+    // Same numeric-column-as-string conversion as driverService.toSummary.
+    averageRating:
+      driverProfile.averageRating !== null ? Number(driverProfile.averageRating) : null,
   };
 }
