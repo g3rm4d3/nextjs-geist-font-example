@@ -7,6 +7,19 @@ import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestIdMiddleware } from './middleware/requestId';
 import { adminRouter } from './routes/admin';
+import { adminAuditLogsRouter } from './routes/adminAuditLogs';
+import { adminDashboardRouter } from './routes/adminDashboard';
+import { adminDocumentsRouter } from './routes/adminDocuments';
+import { adminDriversRouter } from './routes/adminDrivers';
+import { adminEarningsRouter } from './routes/adminEarnings';
+import { adminPassengersRouter } from './routes/adminPassengers';
+import { adminPaymentsRouter } from './routes/adminPayments';
+import { adminPricingRouter } from './routes/adminPricing';
+import { adminRatingsRouter } from './routes/adminRatings';
+import { adminRidesRouter } from './routes/adminRides';
+import { adminSettingsRouter } from './routes/adminSettings';
+import { adminSupportRouter } from './routes/adminSupport';
+import { adminVehiclesRouter } from './routes/adminVehicles';
 import { authRouter } from './routes/auth';
 import { driverEarningsRouter } from './routes/driverEarnings';
 import { driverOffersRouter } from './routes/driverOffers';
@@ -56,7 +69,24 @@ export function createApp(): Express {
   app.use(driverOffersRouter);
   app.use(driverRidesRouter);
   app.use(driverEarningsRouter);
+  // adminRouter (Phase 6/10/12) owns some literal /admin/... paths that
+  // would otherwise collide with these routers' /admin/rides/:id-shaped
+  // params (Express matches route-registration order) — mounted first
+  // so e.g. /admin/rides/active is never swallowed by /admin/rides/:id.
   app.use(adminRouter);
+  app.use(adminDriversRouter);
+  app.use(adminDocumentsRouter);
+  app.use(adminVehiclesRouter);
+  app.use(adminPassengersRouter);
+  app.use(adminRidesRouter);
+  app.use(adminPaymentsRouter);
+  app.use(adminRatingsRouter);
+  app.use(adminSupportRouter);
+  app.use(adminPricingRouter);
+  app.use(adminSettingsRouter);
+  app.use(adminDashboardRouter);
+  app.use(adminEarningsRouter);
+  app.use(adminAuditLogsRouter);
   app.use(routePreviewRouter);
   app.use(pricingRouter);
   app.use(ridesRouter);

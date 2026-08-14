@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { and, avg, count, eq } from 'drizzle-orm';
+import { and, avg, count, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type RatingRow = typeof schema.ratings.$inferSelect;
@@ -101,4 +101,51 @@ export async function updatePassengerRatingAggregate(
       updatedAt: new Date(),
     })
     .where(eq(schema.passengerProfiles.id, passengerProfileId));
+}
+
+export interface RatingAdminRow {
+  id: string;
+  rideId: string;
+  direction: RatingDirectionValue;
+  stars: number;
+  comment: string | null;
+  passengerFirstName: string;
+  passengerLastName: string;
+  driverFirstName: string | null;
+  driverLastName: string | null;
+  createdAt: Date;
+}
+
+const DEFAULT_ADMIN_RATING_LIST_LIMIT = 100;
+
+/**
+ * Section 14's "Ratings" — every rating across every ride, newest
+ * first. Joined through `rides` rather than `users` directly: a rating's
+ * `rater`/`ratee` are always exactly the ride's own passenger and driver
+ * (never a third party), so the ride is the simplest path to both
+ * names regardless of which `direction` a given row is — the service
+ * layer picks passenger-as-rater-vs-ratee based on `direction`.
+ */
+export async function listRecentRatingsForAdmin(
+  limit = DEFAULT_ADMIN_RATING_LIST_LIMIT,
+): Promise<RatingAdminRow[]> {
+  return db
+    .select({
+      id: schema.ratings.id,
+      rideId: schema.ratings.rideId,
+      direction: schema.ratings.direction,
+      stars: schema.ratings.stars,
+      comment: schema.ratings.comment,
+      passengerFirstName: schema.passengerProfiles.firstName,
+      passengerLastName: schema.passengerProfiles.lastName,
+      driverFirstName: schema.driverProfiles.firstName,
+      driverLastName: schema.driverProfiles.lastName,
+      createdAt: schema.ratings.createdAt,
+    })
+    .from(schema.ratings)
+    .innerJoin(schema.rides, eq(schema.ratings.rideId, schema.rides.id))
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .leftJoin(schema.driverProfiles, eq(schema.rides.driverId, schema.driverProfiles.id))
+    .orderBy(desc(schema.ratings.createdAt))
+    .limit(limit);
 }

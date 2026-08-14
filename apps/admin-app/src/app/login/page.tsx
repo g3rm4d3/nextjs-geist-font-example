@@ -2,19 +2,17 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { SystemStatusCard } from '@/components/SystemStatusCard';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { ApiClientError } from '@/lib/apiClient';
 
 /**
- * Minimal admin login — just enough to reach the live fleet map (Phase 6's
- * "Admin App should display virtual drivers on map" requirement). There
- * is no public admin registration endpoint by design (section 8); admin
- * accounts are provisioned directly against the database, the same
- * pattern used throughout the backend's own tests and
- * packages/database/src/seed.ts's SEED_ADMIN_PASSWORD-gated fixture. The
- * rest of the Admin App (dashboard, driver/ride/payment management, its
- * own polished login UX) is Phase 14's job — this exists only so this
- * phase's map has something to authenticate against.
+ * Admin login. There is no public admin registration endpoint by design
+ * (section 8); admin accounts are provisioned directly against the
+ * database, the same pattern used throughout the backend's own tests
+ * and packages/database/src/seed.ts's SEED_ADMIN_PASSWORD-gated
+ * fixture. Redirects to the dashboard (Phase 14's "/") on success —
+ * every other section is reachable from there via AdminShell's nav.
  */
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -25,7 +23,7 @@ export default function AdminLoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'signedIn') router.replace('/live-map');
+    if (status === 'signedIn') router.replace('/');
   }, [status, router]);
 
   async function handleSubmit(event: React.FormEvent) {
@@ -35,7 +33,7 @@ export default function AdminLoginPage() {
 
     try {
       await login({ email, password });
-      router.replace('/live-map');
+      router.replace('/');
     } catch (error) {
       setErrorMessage(
         error instanceof ApiClientError ? error.message : 'Something went wrong. Please try again.',
@@ -105,6 +103,10 @@ export default function AdminLoginPage() {
         No self-service admin registration — accounts are provisioned directly in the database. See
         docs/authentication.md.
       </p>
+
+      <div className="mt-6">
+        <SystemStatusCard />
+      </div>
     </main>
   );
 }

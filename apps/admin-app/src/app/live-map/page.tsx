@@ -2,6 +2,7 @@
 
 import type { FleetDriverLocation } from '@rideshare/types';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/context/AdminAuthContext';
@@ -78,9 +79,9 @@ export default function LiveMapPage() {
     <main className="flex h-screen flex-col">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
-            Stage 1 — Development build
-          </p>
+          <Link href="/" className="text-xs font-medium text-slate-500 hover:underline">
+            ← Dashboard
+          </Link>
           <h1 className="text-lg font-semibold text-slate-900">Live fleet map</h1>
         </div>
         <div className="flex items-center gap-4 text-sm text-slate-600">

@@ -1,56 +1,79 @@
-import Link from 'next/link';
-import { SystemStatusCard } from '@/components/SystemStatusCard';
+'use client';
 
-export default function DashboardPage() {
+import type { AdminDashboardSummary } from '@rideshare/types';
+import { useEffect, useState } from 'react';
+import { AdminShell } from '@/components/AdminShell';
+import { useAdminAuth } from '@/context/AdminAuthContext';
+import { ApiClientError, getAdminDashboard } from '@/lib/apiClient';
+import { formatCents } from '@/lib/format';
+
+function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
-          Stage 1 — Development build, not for commercial use
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Rideshare Admin</h1>
-        <p className="mt-1 text-slate-600">
-          Internal console for platform operations. Foundation scaffold — sections listed in the
-          engineering spec (drivers, rides, payments, support, …) are built out in later phases.
-        </p>
-      </header>
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
 
-      <SystemStatusCard />
+/**
+ * Section 14's "Dashboard" — one-call summary of everything else this
+ * app's sections would otherwise make an admin count by hand. Fetched
+ * once on load with a manual refresh, same cadence as /revenue.
+ */
+export default function DashboardPage() {
+  const { accessToken } = useAdminAuth();
+  const [summary, setSummary] = useState<AdminDashboardSummary | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
-      <Link
-        href="/live-map"
-        className="mt-6 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
-      >
-        <span className="text-sm font-medium text-slate-500">Phase 6</span>
-        <p className="mt-1 font-semibold">Live fleet map →</p>
-        <p className="mt-1 text-sm text-slate-600">
-          Watch virtual drivers move in real time. Requires an admin login.
-        </p>
-      </Link>
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
 
-      <Link
-        href="/rides"
-        className="mt-4 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
-      >
-        <span className="text-sm font-medium text-slate-500">Phase 10</span>
-        <p className="mt-1 font-semibold">Active rides →</p>
-        <p className="mt-1 text-sm text-slate-600">
-          Every ride currently in progress — status, passenger, driver, vehicle. Requires an admin
-          login.
-        </p>
-      </Link>
+    async function load(token: string) {
+      try {
+        const result = await getAdminDashboard(token);
+        if (!cancelled) setSummary(result);
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not load the dashboard.');
+        }
+      }
+    }
 
-      <Link
-        href="/revenue"
-        className="mt-4 block rounded-lg border border-slate-200 bg-white px-6 py-4 text-slate-900 shadow-sm hover:bg-slate-50"
-      >
-        <span className="text-sm font-medium text-slate-500">Phase 12</span>
-        <p className="mt-1 font-semibold">Platform revenue →</p>
-        <p className="mt-1 text-sm text-slate-600">
-          Today/week/month/all-time platform commission from Stripe TEST MODE test rides. Requires
-          an admin login.
-        </p>
-      </Link>
-    </main>
+    void load(accessToken);
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, refreshCount]);
+
+  return (
+    <AdminShell title="Dashboard" subtitle="Stage 1 — Development build, not for commercial use" errorMessage={errorMessage}>
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setRefreshCount((count) => count + 1)}
+          className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {!summary ? (
+        <p className="text-sm text-slate-500">{errorMessage ? '' : 'Loading…'}</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Passengers" value={summary.totalPassengers} />
+          <StatCard label="Drivers" value={summary.totalDrivers} />
+          <StatCard label="Pending driver applications" value={summary.pendingDriverApplications} />
+          <StatCard label="Pending documents" value={summary.pendingDocuments} />
+          <StatCard label="Active rides" value={summary.activeRideCount} />
+          <StatCard label="Open support tickets" value={summary.openSupportTicketCount} />
+          <StatCard label="Rides today" value={summary.todayRideCount} />
+          <StatCard label="Platform commission today" value={formatCents(summary.todayPlatformCommissionCents)} />
+        </div>
+      )}
+    </AdminShell>
   );
 }

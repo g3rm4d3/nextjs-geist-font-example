@@ -1,10 +1,10 @@
 'use client';
 
-import type { EarningsPeriodTotals, PlatformRevenueSummary } from '@rideshare/types';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import type { AdminDriverEarningsRow, EarningsPeriodTotals, PlatformRevenueSummary } from '@rideshare/types';
+import { useEffect, useState } from 'react';
+import { AdminShell } from '@/components/AdminShell';
 import { useAdminAuth } from '@/context/AdminAuthContext';
-import { ApiClientError, getPlatformRevenue } from '@/lib/apiClient';
+import { ApiClientError, getPlatformRevenue, listAdminDriverEarnings } from '@/lib/apiClient';
 import { formatCents } from '@/lib/format';
 
 const PERIODS: { key: keyof PlatformRevenueSummary; label: string }[] = [
@@ -41,132 +41,105 @@ function RevenueCard({ label, totals }: { label: string; totals: EarningsPeriodT
 }
 
 /**
- * Section 12: "Admin sees platform test revenue." Platform-wide
- * equivalent of the driver-app's EarningsScreen (GET /admin/revenue,
- * the same today/week/month windows plus an all-time total). Fetched
- * once on load with a manual refresh — unlike the fleet map/active
- * rides pages, revenue has no reason to be watched second-by-second.
- * Every figure here is Stripe TEST MODE money from fictional test
- * rides — never real revenue (section 1/11).
+ * Section 12/14: "Admin sees platform test revenue" plus the per-driver
+ * drill-down docs/financial-ledger.md (Phase 12) deferred to this
+ * phase. Today/Week/Month/All-time totals fetched once on load with a
+ * manual refresh — revenue has no reason to be watched second-by-second
+ * unlike the fleet map/active rides pages. Every figure here is Stripe
+ * TEST MODE money from fictional test rides — never real revenue
+ * (section 1/11).
  */
 export default function RevenuePage() {
-  const router = useRouter();
-  const { status, accessToken, user, logout } = useAdminAuth();
+  const { accessToken } = useAdminAuth();
   const [summary, setSummary] = useState<PlatformRevenueSummary | null>(null);
+  const [byDriver, setByDriver] = useState<AdminDriverEarningsRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (status === 'signedOut') router.replace('/login');
-  }, [status, router]);
-
-  useEffect(() => {
-    if (!accessToken) return undefined;
-
+    if (!accessToken) return;
     let cancelled = false;
 
     async function load(token: string) {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const result = await getPlatformRevenue(token);
-        if (!cancelled) setSummary(result);
+        const [revenue, breakdown] = await Promise.all([
+          getPlatformRevenue(token),
+          listAdminDriverEarnings(token),
+        ]);
+        if (!cancelled) {
+          setSummary(revenue);
+          setByDriver(breakdown);
+        }
       } catch (error) {
-        if (cancelled) return;
-        setErrorMessage(
-          error instanceof ApiClientError ? error.message : 'Could not load platform revenue.',
-        );
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof ApiClientError ? error.message : 'Could not load platform revenue.',
+          );
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
 
     void load(accessToken);
-
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
-
-  // A separate handler (not the effect above) for the manual "Refresh"
-  // button — same split apps/passenger-app's RideCompleteScreen uses
-  // between its load-on-mount effect and its click-triggered retry
-  // handler, to satisfy the same react-hooks/set-state-in-effect rule.
-  const handleRefresh = useCallback(async () => {
-    if (!accessToken) return;
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const result = await getPlatformRevenue(accessToken);
-      setSummary(result);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof ApiClientError ? error.message : 'Could not load platform revenue.',
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [accessToken]);
-
-  if (status !== 'signedIn') {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-slate-500">
-        Loading…
-      </main>
-    );
-  }
+  }, [accessToken, refreshCount]);
 
   return (
-    <main className="flex min-h-screen flex-col bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
-            Stage 1 — Development build
-          </p>
-          <h1 className="text-lg font-semibold text-slate-900">Platform revenue</h1>
-        </div>
-        <div className="flex items-center gap-4 text-sm text-slate-600">
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={isLoading}
-            className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            data-testid="refresh-button"
-          >
-            {isLoading ? 'Refreshing…' : 'Refresh'}
-          </button>
-          <span>{user?.email}</span>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.replace('/login');
-            }}
-            className="rounded-md border border-slate-300 px-3 py-1 text-slate-700 hover:bg-slate-50"
-            data-testid="logout-button"
-          >
-            Log out
-          </button>
-        </div>
-      </header>
+    <AdminShell title="Earnings" subtitle="Platform revenue & per-driver breakdown" errorMessage={errorMessage}>
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setRefreshCount((count) => count + 1)}
+          disabled={isLoading}
+          className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {isLoading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
 
-      {errorMessage && (
-        <p className="bg-red-50 px-6 py-2 text-sm text-red-600" data-testid="revenue-error">
-          {errorMessage}
-        </p>
+      {summary ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {PERIODS.map(({ key, label }) => (
+            <RevenueCard key={key} label={label} totals={summary[key]} />
+          ))}
+        </div>
+      ) : (
+        !isLoading && <p className="text-sm text-slate-500">No revenue data yet.</p>
       )}
 
-      <div className="flex-1 overflow-auto p-6">
-        {summary ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PERIODS.map(({ key, label }) => (
-              <RevenueCard key={key} label={label} totals={summary[key]} />
+      <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-900">Per-driver breakdown (all-time)</h2>
+      {byDriver.length === 0 ? (
+        <p className="text-sm text-slate-500">No driver earnings recorded yet.</p>
+      ) : (
+        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Driver</th>
+              <th className="px-4 py-3">Rides</th>
+              <th className="px-4 py-3">Gross fare</th>
+              <th className="px-4 py-3">Platform commission</th>
+              <th className="px-4 py-3">Driver earnings</th>
+            </tr>
+          </thead>
+          <tbody>
+            {byDriver.map((row) => (
+              <tr key={row.driverId} className="border-t border-slate-100">
+                <td className="px-4 py-3 text-slate-900">{row.driverName}</td>
+                <td className="px-4 py-3 text-slate-600">{row.rideCount}</td>
+                <td className="px-4 py-3 text-slate-600">{formatCents(row.grossFareCents)}</td>
+                <td className="px-4 py-3 text-slate-600">{formatCents(row.platformCommissionCents)}</td>
+                <td className="px-4 py-3 text-slate-600">{formatCents(row.driverGrossEarningsCents)}</td>
+              </tr>
             ))}
-          </div>
-        ) : (
-          !isLoading && <p className="text-sm text-slate-500">No revenue data yet.</p>
-        )}
-      </div>
-    </main>
+          </tbody>
+        </table>
+      )}
+    </AdminShell>
   );
 }

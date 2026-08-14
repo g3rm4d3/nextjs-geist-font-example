@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { and, count, desc, eq, gte, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, sql, sum } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type DriverEarningsRow = typeof schema.driverEarnings.$inferSelect;
@@ -108,4 +108,37 @@ export async function sumPlatformEarnings(since?: Date): Promise<EarningsTotals>
     .where(since ? gte(schema.driverEarnings.createdAt, since) : undefined);
   if (!row) throw new Error('Aggregate query unexpectedly returned no rows');
   return toTotals(row);
+}
+
+export interface DriverEarningsBreakdownRow {
+  driverId: string;
+  driverFirstName: string;
+  driverLastName: string;
+  rideCount: number;
+  grossFareCents: string | null;
+  platformCommissionCents: string | null;
+  driverGrossEarningsCents: string | null;
+}
+
+/**
+ * Section 14's "Earnings" per-driver breakdown, all-time, highest
+ * gross-fare first — the drill-down docs/financial-ledger.md (Phase 12)
+ * deferred to this phase's broader admin tooling. Grouped in SQL rather
+ * than in JS since driver_earnings can grow without bound.
+ */
+export async function listDriverEarningsBreakdown(): Promise<DriverEarningsBreakdownRow[]> {
+  return db
+    .select({
+      driverId: schema.driverEarnings.driverId,
+      driverFirstName: schema.driverProfiles.firstName,
+      driverLastName: schema.driverProfiles.lastName,
+      rideCount: count(schema.driverEarnings.id),
+      grossFareCents: sum(schema.driverEarnings.grossFareCents),
+      platformCommissionCents: sum(schema.driverEarnings.platformCommissionCents),
+      driverGrossEarningsCents: sum(schema.driverEarnings.driverGrossEarningsCents),
+    })
+    .from(schema.driverEarnings)
+    .innerJoin(schema.driverProfiles, eq(schema.driverEarnings.driverId, schema.driverProfiles.id))
+    .groupBy(schema.driverEarnings.driverId, schema.driverProfiles.firstName, schema.driverProfiles.lastName)
+    .orderBy(sql`sum(${schema.driverEarnings.grossFareCents}) desc`);
 }

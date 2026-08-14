@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { desc, eq } from 'drizzle-orm';
+import { count, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type UserRow = typeof schema.users.$inferSelect;
@@ -165,4 +165,68 @@ export async function updatePasswordHash(userId: string, passwordHash: string): 
     .update(schema.users)
     .set({ passwordHash, updatedAt: new Date() })
     .where(eq(schema.users.id, userId));
+}
+
+/** One row per passenger, joined with their account's email/isActive —
+ * section 14's "Passengers" list and "inspect passenger" detail. */
+export interface PassengerAdminRow {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isActive: boolean;
+  averageRating: string | null;
+  ratingsCount: number;
+  defaultTestPaymentMethodId: string | null;
+  createdAt: Date;
+}
+
+const PASSENGER_ADMIN_ROW_SELECTION = {
+  id: schema.passengerProfiles.id,
+  userId: schema.passengerProfiles.userId,
+  firstName: schema.passengerProfiles.firstName,
+  lastName: schema.passengerProfiles.lastName,
+  email: schema.users.email,
+  isActive: schema.users.isActive,
+  averageRating: schema.passengerProfiles.averageRating,
+  ratingsCount: schema.passengerProfiles.ratingsCount,
+  defaultTestPaymentMethodId: schema.passengerProfiles.defaultTestPaymentMethodId,
+  createdAt: schema.passengerProfiles.createdAt,
+};
+
+const DEFAULT_ADMIN_LIST_LIMIT = 100;
+
+export async function listPassengers(limit = DEFAULT_ADMIN_LIST_LIMIT): Promise<PassengerAdminRow[]> {
+  return db
+    .select(PASSENGER_ADMIN_ROW_SELECTION)
+    .from(schema.passengerProfiles)
+    .innerJoin(schema.users, eq(schema.passengerProfiles.userId, schema.users.id))
+    .orderBy(desc(schema.passengerProfiles.createdAt))
+    .limit(limit);
+}
+
+export async function findPassengerAdminRowById(
+  passengerId: string,
+): Promise<PassengerAdminRow | undefined> {
+  const [row] = await db
+    .select(PASSENGER_ADMIN_ROW_SELECTION)
+    .from(schema.passengerProfiles)
+    .innerJoin(schema.users, eq(schema.passengerProfiles.userId, schema.users.id))
+    .where(eq(schema.passengerProfiles.id, passengerId))
+    .limit(1);
+  return row;
+}
+
+/** Section 14's "Dashboard": total passenger accounts, regardless of
+ * isActive — matches listPassengers's own unfiltered scope. */
+export async function countPassengers(): Promise<number> {
+  const [row] = await db.select({ total: count() }).from(schema.passengerProfiles);
+  return row?.total ?? 0;
+}
+
+/** Same as countPassengers, driver side. */
+export async function countDrivers(): Promise<number> {
+  const [row] = await db.select({ total: count() }).from(schema.driverProfiles);
+  return row?.total ?? 0;
 }

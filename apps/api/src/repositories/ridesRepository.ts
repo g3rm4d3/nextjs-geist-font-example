@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type RideRow = typeof schema.rides.$inferSelect;
@@ -296,4 +296,117 @@ export async function listActiveRides(): Promise<ActiveRideAdminRow[]> {
     .leftJoin(schema.driverProfiles, eq(schema.rides.driverId, schema.driverProfiles.id))
     .where(inArray(schema.rides.status, ACTIVE_RIDE_STATUSES))
     .orderBy(desc(schema.rides.requestedAt));
+}
+
+/** "Inspect passenger": how many rides they've ever requested,
+ * regardless of outcome (completed, cancelled, or still in flight). */
+export async function countRidesForPassenger(passengerId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(schema.rides)
+    .where(eq(schema.rides.passengerId, passengerId));
+  return row?.total ?? 0;
+}
+
+/** Section 14's "Dashboard" — same non-terminal-status set as
+ * listActiveRides, just a count instead of full rows. */
+export async function countActiveRides(): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(schema.rides)
+    .where(inArray(schema.rides.status, ACTIVE_RIDE_STATUSES));
+  return row?.total ?? 0;
+}
+
+/** Section 14's "Dashboard": rides requested at or after `since`,
+ * regardless of current status. */
+export async function countRidesRequestedSince(since: Date): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(schema.rides)
+    .where(gte(schema.rides.requestedAt, since));
+  return row?.total ?? 0;
+}
+
+export interface RideAdminRow {
+  id: string;
+  status: RideStatusValue;
+  passengerId: string;
+  driverId: string | null;
+  passengerFirstName: string;
+  passengerLastName: string;
+  driverFirstName: string | null;
+  driverLastName: string | null;
+  pickupAddress: string;
+  pickupLat: number;
+  pickupLng: number;
+  destinationAddress: string;
+  destinationLat: number;
+  destinationLng: number;
+  estimatedFareCents: number | null;
+  finalFareCents: number | null;
+  actualDistanceMeters: number | null;
+  actualDurationSeconds: number | null;
+  requestedAt: Date;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  cancelledBy: RideRow['cancelledBy'];
+  cancellationReason: string | null;
+}
+
+const RIDE_ADMIN_ROW_SELECTION = {
+  id: schema.rides.id,
+  status: schema.rides.status,
+  passengerId: schema.rides.passengerId,
+  driverId: schema.rides.driverId,
+  passengerFirstName: schema.passengerProfiles.firstName,
+  passengerLastName: schema.passengerProfiles.lastName,
+  driverFirstName: schema.driverProfiles.firstName,
+  driverLastName: schema.driverProfiles.lastName,
+  pickupAddress: schema.rides.pickupAddress,
+  pickupLat: schema.rides.pickupLat,
+  pickupLng: schema.rides.pickupLng,
+  destinationAddress: schema.rides.destinationAddress,
+  destinationLat: schema.rides.destinationLat,
+  destinationLng: schema.rides.destinationLng,
+  estimatedFareCents: schema.rides.estimatedFareCents,
+  finalFareCents: schema.rides.finalFareCents,
+  actualDistanceMeters: schema.rides.actualDistanceMeters,
+  actualDurationSeconds: schema.rides.actualDurationSeconds,
+  requestedAt: schema.rides.requestedAt,
+  completedAt: schema.rides.completedAt,
+  cancelledAt: schema.rides.cancelledAt,
+  cancelledBy: schema.rides.cancelledBy,
+  cancellationReason: schema.rides.cancellationReason,
+};
+
+const DEFAULT_ADMIN_RIDE_LIST_LIMIT = 100;
+
+/** Section 14's "Rides" — every ride regardless of status (unlike
+ * listActiveRides above, which is Phase 10's non-terminal-only view),
+ * newest first. `statusFilter` narrows to one status at a time. */
+export async function listAllRidesForAdmin(
+  limit = DEFAULT_ADMIN_RIDE_LIST_LIMIT,
+  statusFilter?: RideStatusValue,
+): Promise<RideAdminRow[]> {
+  return db
+    .select(RIDE_ADMIN_ROW_SELECTION)
+    .from(schema.rides)
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .leftJoin(schema.driverProfiles, eq(schema.rides.driverId, schema.driverProfiles.id))
+    .where(statusFilter ? eq(schema.rides.status, statusFilter) : undefined)
+    .orderBy(desc(schema.rides.requestedAt))
+    .limit(limit);
+}
+
+/** "Inspect ride." */
+export async function findRideAdminRowById(rideId: string): Promise<RideAdminRow | undefined> {
+  const [row] = await db
+    .select(RIDE_ADMIN_ROW_SELECTION)
+    .from(schema.rides)
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .leftJoin(schema.driverProfiles, eq(schema.rides.driverId, schema.driverProfiles.id))
+    .where(eq(schema.rides.id, rideId))
+    .limit(1);
+  return row;
 }

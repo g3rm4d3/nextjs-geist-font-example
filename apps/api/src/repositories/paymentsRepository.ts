@@ -173,3 +173,65 @@ export async function markPaymentRefunded(
     .returning();
   return updated;
 }
+
+export interface PaymentAdminRow {
+  id: string;
+  rideId: string;
+  status: PaymentStatusValue;
+  amountCents: number;
+  currency: string;
+  providerPaymentIntentId: string | null;
+  failureReason: string | null;
+  refundedAt: Date | null;
+  refundReason: string | null;
+  passengerFirstName: string;
+  passengerLastName: string;
+  createdAt: Date;
+}
+
+const PAYMENT_ADMIN_ROW_SELECTION = {
+  id: schema.paymentRecords.id,
+  rideId: schema.paymentRecords.rideId,
+  status: schema.paymentRecords.status,
+  amountCents: schema.paymentRecords.amountCents,
+  currency: schema.paymentRecords.currency,
+  providerPaymentIntentId: schema.paymentRecords.providerPaymentIntentId,
+  failureReason: schema.paymentRecords.failureReason,
+  refundedAt: schema.paymentRecords.refundedAt,
+  refundReason: schema.paymentRecords.refundReason,
+  passengerFirstName: schema.passengerProfiles.firstName,
+  passengerLastName: schema.passengerProfiles.lastName,
+  createdAt: schema.paymentRecords.createdAt,
+};
+
+const DEFAULT_ADMIN_PAYMENT_LIST_LIMIT = 100;
+
+/** Section 14's "Payments" — every payment attempt across every ride,
+ * newest first, `?status=` narrows to one. */
+export async function listAllPaymentsForAdmin(
+  limit = DEFAULT_ADMIN_PAYMENT_LIST_LIMIT,
+  statusFilter?: PaymentStatusValue,
+): Promise<PaymentAdminRow[]> {
+  return db
+    .select(PAYMENT_ADMIN_ROW_SELECTION)
+    .from(schema.paymentRecords)
+    .innerJoin(schema.rides, eq(schema.paymentRecords.rideId, schema.rides.id))
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .where(statusFilter ? eq(schema.paymentRecords.status, statusFilter) : undefined)
+    .orderBy(desc(schema.paymentRecords.createdAt))
+    .limit(limit);
+}
+
+/** "Inspect payment." */
+export async function findPaymentAdminRowById(
+  paymentRecordId: string,
+): Promise<PaymentAdminRow | undefined> {
+  const [row] = await db
+    .select(PAYMENT_ADMIN_ROW_SELECTION)
+    .from(schema.paymentRecords)
+    .innerJoin(schema.rides, eq(schema.paymentRecords.rideId, schema.rides.id))
+    .innerJoin(schema.passengerProfiles, eq(schema.rides.passengerId, schema.passengerProfiles.id))
+    .where(eq(schema.paymentRecords.id, paymentRecordId))
+    .limit(1);
+  return row;
+}

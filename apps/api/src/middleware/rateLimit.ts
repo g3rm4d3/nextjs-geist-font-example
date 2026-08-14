@@ -181,3 +181,17 @@ export const ratingLimiter = createLimiter({
   message: 'Too many rating requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 14: every admin-app read/write across every section (dashboard,
+// passengers, drivers, documents, rides, payments, ratings, support,
+// pricing, settings, audit logs). One shared limiter, not one per
+// section — an admin operator legitimately clicks through many of these
+// in quick succession while working a queue, and the sections don't
+// need independently-tuned ceilings. Per-user, same reasoning as every
+// limiter above.
+export const adminLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 120,
+  message: 'Too many admin requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});
