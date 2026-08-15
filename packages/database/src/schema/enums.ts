@@ -40,10 +40,23 @@ export const documentTypeEnum = pgEnum('document_type', [
   'PROFILE_PHOTO',
 ]);
 
+// REPLACEMENT_REQUESTED added in Phase 15: distinct from REJECTED — the
+// document isn't being turned down outright (e.g. it's fine but about to
+// expire, or the photo needs a fresh copy), it just needs a new upload.
 export const documentReviewStatusEnum = pgEnum('document_review_status', [
   'PENDING',
   'APPROVED',
   'REJECTED',
+  'REPLACEMENT_REQUESTED',
+]);
+
+// Phase 15 — BackgroundCheckProvider is MOCK ONLY in Stage 1 (section 13);
+// modeled as PENDING/PASSED/FAILED so a real, async provider could be
+// swapped in later without a schema change.
+export const backgroundCheckStatusEnum = pgEnum('background_check_status', [
+  'PENDING',
+  'PASSED',
+  'FAILED',
 ]);
 
 // Section 12 — ride lifecycle state machine (valid states only; legal

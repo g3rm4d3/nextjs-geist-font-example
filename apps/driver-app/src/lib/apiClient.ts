@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   AuthResponse,
   AuthUser,
+  DriverDocument,
   DriverEarningsHistoryEntry,
   DriverEarningsSummary,
   DriverProfileSummary,
@@ -18,6 +19,7 @@ import type {
   RegisterDriverInput,
   SubmitRatingInput,
   UpdateAvailabilityInput,
+  UploadDocumentInput,
   UpsertVehicleInput,
 } from '@rideshare/validation';
 import { env } from '../config/env';
@@ -200,4 +202,16 @@ export function getRideRatings(accessToken: string, rideId: string): Promise<Rid
     method: 'GET',
     accessToken,
   });
+}
+
+/** Phase 15: "Implement secure document system" — a driver's own upload. */
+export function uploadDocument(
+  accessToken: string,
+  input: UploadDocumentInput,
+): Promise<DriverDocument> {
+  return request<DriverDocument>('/drivers/me/documents', { body: input, accessToken });
+}
+
+export function getOwnDocuments(accessToken: string): Promise<DriverDocument[]> {
+  return request<DriverDocument[]>('/drivers/me/documents', { method: 'GET', accessToken });
 }

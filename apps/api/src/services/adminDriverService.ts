@@ -13,6 +13,7 @@ import {
   type DriverAdminRow,
 } from '../repositories/driversRepository';
 import { findDocumentsByDriver } from '../repositories/documentsRepository';
+import { getLatestBackgroundCheck } from './adminBackgroundCheckService';
 import { recordAuditLog } from './auditService';
 
 type DriverOnboardingStatus = AdminDriverSummary['onboardingStatus'];
@@ -66,9 +67,10 @@ export async function getDriverDetail(driverId: string): Promise<AdminDriverDeta
   const row = await findDriverAdminRowById(driverId);
   if (!row) throw new NotFoundError('Driver not found');
 
-  const [vehicleRow, documentRows] = await Promise.all([
+  const [vehicleRow, documentRows, latestBackgroundCheck] = await Promise.all([
     findActiveVehicleForDriver(driverId),
     findDocumentsByDriver(driverId),
+    getLatestBackgroundCheck(driverId),
   ]);
 
   const driverName = `${row.firstName} ${row.lastName}`;
@@ -80,6 +82,7 @@ export async function getDriverDetail(driverId: string): Promise<AdminDriverDeta
     licenseExpiresAt: row.licenseExpiresAt ? row.licenseExpiresAt.toISOString() : null,
     vehicle: vehicleRow ? toVehicle(vehicleRow) : null,
     documents: documentRows.map((doc) => toDocumentSummary(doc, driverName)),
+    latestBackgroundCheck,
   };
 }
 

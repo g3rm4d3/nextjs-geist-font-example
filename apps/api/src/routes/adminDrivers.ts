@@ -1,4 +1,4 @@
-import type { AdminDriverDetail, AdminDriverSummary } from '@rideshare/types';
+import type { AdminDriverDetail, AdminDriverSummary, BackgroundCheckSummary } from '@rideshare/types';
 import { rejectDriverSchema, suspendDriverSchema } from '@rideshare/validation';
 import type { Request } from 'express';
 import { Router } from 'express';
@@ -9,6 +9,7 @@ import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { adminLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
+import * as adminBackgroundCheckService from '../services/adminBackgroundCheckService';
 import * as adminDriverService from '../services/adminDriverService';
 
 export const adminDriversRouter = Router();
@@ -131,5 +132,26 @@ adminDriversRouter.post(
     const driverId = requireIdParam(req.params.id, 'driver id');
     const driver: AdminDriverSummary = await adminDriverService.reactivateDriver(driverId, actorFrom(req));
     sendSuccess(req, res, driver);
+  },
+);
+
+/**
+ * Section 13's BackgroundCheckProvider, wired into section 15's driver
+ * document management — ADMIN+, same classification as approve/reject
+ * (routine, not platform-wide/severe). Always the MOCK provider; see
+ * docs/document-management.md.
+ */
+adminDriversRouter.post(
+  '/admin/drivers/:id/background-check',
+  requireAuth,
+  requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
+  async (req, res) => {
+    const driverId = requireIdParam(req.params.id, 'driver id');
+    const result: BackgroundCheckSummary = await adminBackgroundCheckService.runBackgroundCheck(
+      driverId,
+      actorFrom(req),
+    );
+    sendSuccess(req, res, result, 201);
   },
 );

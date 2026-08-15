@@ -1,5 +1,5 @@
 import type { AdminDocumentSummary } from '@rideshare/types';
-import { reviewDocumentSchema } from '@rideshare/validation';
+import { requestDocumentReplacementSchema, reviewDocumentSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError, ValidationError } from '../lib/errors';
 import { requireIdParam } from '../lib/params';
@@ -11,11 +11,16 @@ import * as adminDocumentService from '../services/adminDocumentService';
 
 export const adminDocumentsRouter = Router();
 
-const REVIEW_STATUS_VALUES = ['PENDING', 'APPROVED', 'REJECTED'];
+const REVIEW_STATUS_VALUES = ['PENDING', 'APPROVED', 'REJECTED', 'REPLACEMENT_REQUESTED'];
 
-/** Section 14's "Documents" review queue. `?reviewStatus=PENDING` (the
+/**
+ * Section 14's "Documents" review queue. `?reviewStatus=PENDING` (the
  * default an admin-app landing on this page would use) narrows to the
- * actual queue; omitted shows every document ever uploaded. */
+ * actual queue; omitted shows every document ever uploaded.
+ * `?expiringWithinDays=N` (Phase 15) is the "internal expiration
+ * warnings" filter — both filters can combine, e.g.
+ * `?reviewStatus=APPROVED&expiringWithinDays=30`.
+ */
 adminDocumentsRouter.get(
   '/admin/documents',
   requireAuth,
@@ -28,9 +33,20 @@ adminDocumentsRouter.get(
         throw new ValidationError('Invalid reviewStatus filter');
       }
     }
-    const documents: AdminDocumentSummary[] = await adminDocumentService.listDocumentsForAdmin(
-      statusParam as AdminDocumentSummary['reviewStatus'] | undefined,
-    );
+
+    const expiringParam = req.query.expiringWithinDays;
+    let expiringWithinDays: number | undefined;
+    if (expiringParam !== undefined) {
+      if (typeof expiringParam !== 'string' || !/^\d+$/.test(expiringParam)) {
+        throw new ValidationError('Invalid expiringWithinDays filter');
+      }
+      expiringWithinDays = Number(expiringParam);
+    }
+
+    const documents: AdminDocumentSummary[] = await adminDocumentService.listDocumentsForAdmin({
+      reviewStatus: statusParam as AdminDocumentSummary['reviewStatus'] | undefined,
+      expiringWithinDays,
+    });
     sendSuccess(req, res, documents);
   },
 );
@@ -57,6 +73,31 @@ adminDocumentsRouter.post(
       },
       req.body.approved,
       req.body.rejectionReason ?? null,
+    );
+    sendSuccess(req, res, document);
+  },
+);
+
+/** "Request replacement" (section 15's third admin document action) —
+ * PENDING or APPROVED -> REPLACEMENT_REQUESTED only. */
+adminDocumentsRouter.post(
+  '/admin/documents/:id/request-replacement',
+  requireAuth,
+  requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
+  validateBody(requestDocumentReplacementSchema),
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const documentId = requireIdParam(req.params.id, 'document id');
+    const document: AdminDocumentSummary = await adminDocumentService.requestReplacement(
+      documentId,
+      {
+        userId: req.auth.userId,
+        role: req.auth.role,
+        requestId: req.requestId,
+        ipAddress: req.ip ?? null,
+      },
+      req.body.reason,
     );
     sendSuccess(req, res, document);
   },

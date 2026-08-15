@@ -5,6 +5,7 @@
  * on purpose (see docs/architecture.md).
  */
 import type { DriverAvailabilityStatus, DriverOnboardingStatus } from './auth';
+import type { BackgroundCheckSummary, DocumentReviewStatus, DocumentType } from './document';
 import type { Vehicle } from './driver';
 import type { PaymentStatus } from './payment';
 import type { RatingDirection } from './rating';
@@ -16,6 +17,9 @@ export interface AdminDashboardSummary {
   totalDrivers: number;
   pendingDriverApplications: number;
   pendingDocuments: number;
+  /** Phase 15's "internal expiration warnings" — APPROVED documents
+   * expiring within the next 30 days. */
+  expiringDocumentsCount: number;
   activeRideCount: number;
   openSupportTicketCount: number;
   todayRideCount: number;
@@ -59,8 +63,8 @@ export interface AdminDocumentSummary {
   id: string;
   driverId: string;
   driverName: string;
-  documentType: 'DRIVER_LICENSE' | 'VEHICLE_REGISTRATION' | 'INSURANCE' | 'PROFILE_PHOTO';
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  documentType: DocumentType;
+  reviewStatus: DocumentReviewStatus;
   uploadedAt: string;
   expiresAt: string | null;
   reviewedAt: string | null;
@@ -73,6 +77,9 @@ export interface AdminDriverDetail extends AdminDriverSummary {
   licenseExpiresAt: string | null;
   vehicle: Vehicle | null;
   documents: AdminDocumentSummary[];
+  /** Phase 15's BackgroundCheckProvider result, most recent run only —
+   * null until an admin has triggered at least one check. */
+  latestBackgroundCheck: BackgroundCheckSummary | null;
 }
 
 export interface AdminVehicleSummary {

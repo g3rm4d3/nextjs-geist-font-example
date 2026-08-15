@@ -22,6 +22,8 @@
     "@rideshare/matching": "*",
     "@rideshare/payments": "*",
     "@rideshare/pricing": "*",
+    "@rideshare/screening": "*",
+    "@rideshare/storage": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",
     "cors": "^2.8.6",

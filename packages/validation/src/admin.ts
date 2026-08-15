@@ -35,6 +35,14 @@ export const reviewDocumentSchema = z
   });
 export type ReviewDocumentInput = z.infer<typeof reviewDocumentSchema>;
 
+/** POST /admin/documents/:id/request-replacement — the document isn't
+ * being rejected outright, it just needs a fresh upload; a reason is
+ * required so the driver knows what to fix, same as reject. */
+export const requestDocumentReplacementSchema = z.object({
+  reason: z.string().trim().min(1).max(1000),
+});
+export type RequestDocumentReplacementInput = z.infer<typeof requestDocumentReplacementSchema>;
+
 /**
  * POST /admin/pricing/configs (SUPER_ADMIN only) — "change pricing."
  * Bounds mirror the CHECK constraints on `pricing_configs`

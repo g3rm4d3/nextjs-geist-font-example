@@ -4,6 +4,7 @@ export * from './passengers';
 export * from './drivers';
 export * from './vehicles';
 export * from './documents';
+export * from './backgroundChecks';
 export * from './rides';
 export * from './rideRequests';
 export * from './rideEvents';

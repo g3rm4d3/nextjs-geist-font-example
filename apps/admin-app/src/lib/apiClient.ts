@@ -21,6 +21,7 @@ import type {
   ApiResponse,
   AuthResponse,
   AuthUser,
+  BackgroundCheckSummary,
   FleetDriverLocation,
   HealthCheckResponse,
   PlatformRevenueSummary,
@@ -28,6 +29,7 @@ import type {
 import type {
   ChangePricingInput,
   LoginInput,
+  RequestDocumentReplacementInput,
   ReviewDocumentInput,
   UpsertSystemSettingInput,
 } from '@rideshare/validation';
@@ -194,9 +196,16 @@ export function listAdminVehicles(accessToken: string): Promise<AdminVehicleSumm
 export function listAdminDocuments(
   accessToken: string,
   reviewStatus?: AdminDocumentSummary['reviewStatus'],
+  expiringWithinDays?: number,
 ): Promise<AdminDocumentSummary[]> {
-  const query = reviewStatus ? `?reviewStatus=${reviewStatus}` : '';
-  return request<AdminDocumentSummary[]>(`/admin/documents${query}`, { method: 'GET', accessToken });
+  const params = new URLSearchParams();
+  if (reviewStatus) params.set('reviewStatus', reviewStatus);
+  if (expiringWithinDays !== undefined) params.set('expiringWithinDays', String(expiringWithinDays));
+  const query = params.toString();
+  return request<AdminDocumentSummary[]>(`/admin/documents${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    accessToken,
+  });
 }
 
 /** "Review documents" — approve outright, or reject with a required reason. */
@@ -209,6 +218,25 @@ export function reviewDocument(
     accessToken,
     body: input,
   });
+}
+
+/** "Request replacement" (Phase 15's third admin document action) —
+ * PENDING or APPROVED -> REPLACEMENT_REQUESTED. */
+export function requestDocumentReplacement(
+  accessToken: string,
+  documentId: string,
+  input: RequestDocumentReplacementInput,
+): Promise<AdminDocumentSummary> {
+  return request<AdminDocumentSummary>(`/admin/documents/${documentId}/request-replacement`, {
+    accessToken,
+    body: input,
+  });
+}
+
+/** Section 13's BackgroundCheckProvider (MOCK ONLY), wired into Phase
+ * 15's driver document management — ADMIN+, not SUPER_ADMIN-gated. */
+export function runBackgroundCheck(accessToken: string, driverId: string): Promise<BackgroundCheckSummary> {
+  return request<BackgroundCheckSummary>(`/admin/drivers/${driverId}/background-check`, { accessToken });
 }
 
 /** Section 14's "Rides" — full ride history, distinct from Phase 10's

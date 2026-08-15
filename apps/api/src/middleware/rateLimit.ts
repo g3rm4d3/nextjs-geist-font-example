@@ -182,6 +182,18 @@ export const ratingLimiter = createLimiter({
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
 
+// Phase 15: a driver's own document upload/list. Uploads are inherently
+// infrequent (a handful of documents, occasionally replaced) — this is
+// mostly a backstop against a buggy client retry-looping the upload
+// call, not a cadence limiter like locationPingLimiter. Per-user, same
+// reasoning as every limiter above that sits behind requireAuth.
+export const documentLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 20,
+  message: 'Too many document requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});
+
 // Phase 14: every admin-app read/write across every section (dashboard,
 // passengers, drivers, documents, rides, payments, ratings, support,
 // pricing, settings, audit logs). One shared limiter, not one per

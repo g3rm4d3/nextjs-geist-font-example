@@ -1,6 +1,7 @@
 export * from './admin';
 export * from './api';
 export * from './auth';
+export * from './document';
 export * from './driver';
 export * from './earnings';
 export * from './health';

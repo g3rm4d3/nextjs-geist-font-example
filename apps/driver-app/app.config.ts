@@ -46,6 +46,19 @@ const config: ExpoConfig = {
           'Rideshare Driver uses your location to show your position on the map while you are online.',
       },
     ],
+    [
+      'expo-image-picker',
+      {
+        // Phase 15: photographing/selecting a driver license, vehicle
+        // registration, insurance card, or profile photo for document
+        // upload. No microphone/audio permission is requested — only
+        // still photos are ever captured here.
+        photosPermission:
+          'Rideshare Driver uses your photo library to attach a document (license, registration, insurance, profile photo).',
+        cameraPermission:
+          'Rideshare Driver uses your camera to photograph a document (license, registration, insurance, profile photo).',
+      },
+    ],
   ],
   extra: {
     stage: 'stage-1-development',

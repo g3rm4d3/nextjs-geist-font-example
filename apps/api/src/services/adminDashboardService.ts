@@ -1,5 +1,5 @@
 import type { AdminDashboardSummary } from '@rideshare/types';
-import { countPendingDocuments } from '../repositories/documentsRepository';
+import { countExpiringDocuments, countPendingDocuments } from '../repositories/documentsRepository';
 import { countPendingDriverApplications } from '../repositories/driversRepository';
 import { countActiveRides, countRidesRequestedSince } from '../repositories/ridesRepository';
 import { countOpenTickets } from '../repositories/supportRepository';
@@ -24,6 +24,7 @@ export async function getDashboardSummary(): Promise<AdminDashboardSummary> {
     totalDrivers,
     pendingDriverApplications,
     pendingDocuments,
+    expiringDocumentsCount,
     activeRideCount,
     openSupportTicketCount,
     todayRideCount,
@@ -33,6 +34,7 @@ export async function getDashboardSummary(): Promise<AdminDashboardSummary> {
     countDrivers(),
     countPendingDriverApplications(),
     countPendingDocuments(),
+    countExpiringDocuments(),
     countActiveRides(),
     countOpenTickets(),
     countRidesRequestedSince(today),
@@ -44,6 +46,7 @@ export async function getDashboardSummary(): Promise<AdminDashboardSummary> {
     totalDrivers,
     pendingDriverApplications,
     pendingDocuments,
+    expiringDocumentsCount,
     activeRideCount,
     openSupportTicketCount,
     todayRideCount,

@@ -21,6 +21,7 @@ import { adminSettingsRouter } from './routes/adminSettings';
 import { adminSupportRouter } from './routes/adminSupport';
 import { adminVehiclesRouter } from './routes/adminVehicles';
 import { authRouter } from './routes/auth';
+import { driverDocumentsRouter } from './routes/driverDocuments';
 import { driverEarningsRouter } from './routes/driverEarnings';
 import { driverOffersRouter } from './routes/driverOffers';
 import { driverRidesRouter } from './routes/driverRides';
@@ -60,7 +61,12 @@ export function createApp(): Express {
   // other request.
   app.use(webhooksRouter);
 
-  app.use(express.json({ limit: '1mb' }));
+  // Phase 15's document upload sends file bytes as base64 JSON (see
+  // uploadDocumentSchema's own 6MB base64-string ceiling) — bumped from
+  // the original 1mb default to comfortably fit a photographed license/
+  // insurance document, which every other route's much smaller payloads
+  // don't need.
+  app.use(express.json({ limit: '8mb' }));
 
   app.use(healthRouter);
   app.use(authRouter);
@@ -69,6 +75,7 @@ export function createApp(): Express {
   app.use(driverOffersRouter);
   app.use(driverRidesRouter);
   app.use(driverEarningsRouter);
+  app.use(driverDocumentsRouter);
   // adminRouter (Phase 6/10/12) owns some literal /admin/... paths that
   // would otherwise collide with these routers' /admin/rides/:id-shaped
   // params (Express matches route-registration order) — mounted first

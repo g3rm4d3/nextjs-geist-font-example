@@ -4,17 +4,24 @@ import { ConflictError, NotFoundError } from '../lib/errors';
 import {
   findDocumentById,
   listDocuments,
+  requestReplacement as requestReplacementRow,
   reviewDocument as reviewDocumentRow,
   type DocumentAdminRow,
+  type DriverDocumentRow,
+  type ListDocumentsFilter,
 } from '../repositories/documentsRepository';
 import { findDriverProfileById } from '../repositories/usersRepository';
 import { recordAuditLog } from './auditService';
 
 function toSummary(row: DocumentAdminRow): AdminDocumentSummary {
+  return buildSummary(row, `${row.driverFirstName} ${row.driverLastName}`);
+}
+
+function buildSummary(row: DriverDocumentRow, driverName: string): AdminDocumentSummary {
   return {
     id: row.id,
     driverId: row.driverId,
-    driverName: `${row.driverFirstName} ${row.driverLastName}`,
+    driverName,
     documentType: row.documentType,
     reviewStatus: row.reviewStatus,
     uploadedAt: row.uploadedAt.toISOString(),
@@ -24,14 +31,16 @@ function toSummary(row: DocumentAdminRow): AdminDocumentSummary {
   };
 }
 
-type DocumentReviewStatus = AdminDocumentSummary['reviewStatus'];
+async function driverNameFor(driverId: string): Promise<string> {
+  const driver = await findDriverProfileById(driverId);
+  return driver ? `${driver.firstName} ${driver.lastName}` : 'Unknown driver';
+}
 
-/** Section 14's "Documents" review queue. `reviewStatus` omitted shows
- * every document ever uploaded, not just the pending ones. */
-export async function listDocumentsForAdmin(
-  reviewStatus?: DocumentReviewStatus,
-): Promise<AdminDocumentSummary[]> {
-  const rows = await listDocuments(reviewStatus);
+/** Section 14's "Documents" review queue, extended in Phase 15 with an
+ * expiration filter. Both filters omitted shows every document ever
+ * uploaded, not just the pending ones. */
+export async function listDocumentsForAdmin(filter: ListDocumentsFilter = {}): Promise<AdminDocumentSummary[]> {
+  const rows = await listDocuments(filter);
   return rows.map(toSummary);
 }
 
@@ -71,18 +80,48 @@ export async function reviewDocument(
     requestId: actor.requestId,
   });
 
-  const driver = await findDriverProfileById(updated.driverId);
-  const driverName = driver ? `${driver.firstName} ${driver.lastName}` : 'Unknown driver';
+  return buildSummary(updated, await driverNameFor(updated.driverId));
+}
 
-  return {
-    id: updated.id,
-    driverId: updated.driverId,
-    driverName,
-    documentType: updated.documentType,
-    reviewStatus: updated.reviewStatus,
-    uploadedAt: updated.uploadedAt.toISOString(),
-    expiresAt: updated.expiresAt ? updated.expiresAt.toISOString() : null,
-    reviewedAt: updated.reviewedAt ? updated.reviewedAt.toISOString() : null,
-    rejectionReason: updated.rejectionReason,
-  };
+/**
+ * "Request replacement" — the third admin document action (section 15),
+ * distinct from reject: the document isn't being turned down outright,
+ * it just needs a fresh upload. PENDING or APPROVED -> REPLACEMENT_REQUESTED
+ * only — a 409 if the document is already REJECTED or already has a
+ * pending replacement request.
+ */
+export async function requestReplacement(
+  documentId: string,
+  actor: AuditActorContext,
+  reason: string,
+): Promise<AdminDocumentSummary> {
+  // Captured before the compare-and-swap purely for an accurate audit
+  // "before" snapshot — requestReplacementRow allows two starting
+  // states (PENDING or APPROVED), so there's no single hardcoded value
+  // to record the way suspendDriver's audit entry can.
+  const before = await findDocumentById(documentId);
+
+  const updated = await requestReplacementRow({
+    documentId,
+    reviewerUserId: actor.userId,
+    reason,
+  });
+  if (!updated) {
+    if (!before) throw new NotFoundError('Document not found');
+    throw new ConflictError('A replacement cannot be requested for this document in its current state');
+  }
+
+  await recordAuditLog({
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    action: 'document.request_replacement',
+    entityType: 'driver_document',
+    entityId: documentId,
+    before: { reviewStatus: before?.reviewStatus },
+    after: { reviewStatus: 'REPLACEMENT_REQUESTED', reason },
+    ipAddress: actor.ipAddress,
+    requestId: actor.requestId,
+  });
+
+  return buildSummary(updated, await driverNameFor(updated.driverId));
 }

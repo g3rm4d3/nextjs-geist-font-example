@@ -1,5 +1,6 @@
 export * from './admin';
 export * from './auth';
+export * from './document';
 export * from './driver';
 export * from './location';
 export * from './payments';

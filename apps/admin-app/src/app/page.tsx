@@ -68,6 +68,7 @@ export default function DashboardPage() {
           <StatCard label="Drivers" value={summary.totalDrivers} />
           <StatCard label="Pending driver applications" value={summary.pendingDriverApplications} />
           <StatCard label="Pending documents" value={summary.pendingDocuments} />
+          <StatCard label="Documents expiring soon" value={summary.expiringDocumentsCount} />
           <StatCard label="Active rides" value={summary.activeRideCount} />
           <StatCard label="Open support tickets" value={summary.openSupportTicketCount} />
           <StatCard label="Rides today" value={summary.todayRideCount} />
