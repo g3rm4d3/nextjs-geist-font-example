@@ -16,6 +16,7 @@ import type {
   AdminRideSummary,
   AdminSupportMessage,
   AdminSupportTicketDetail,
+  AdminSupportTicketStatus,
   AdminSupportTicketSummary,
   AdminSystemSetting,
   AdminVehicleSummary,
@@ -29,6 +30,7 @@ import type {
 } from '@rideshare/types';
 import type {
   ChangePricingInput,
+  ChangeSupportTicketStatusInput,
   LoginInput,
   ReplySupportTicketInput,
   RequestDocumentReplacementInput,
@@ -304,6 +306,25 @@ export function replySupportTicket(
   input: ReplySupportTicketInput,
 ): Promise<AdminSupportMessage> {
   return request<AdminSupportMessage>(`/admin/support/tickets/${ticketId}/messages`, {
+    accessToken,
+    body: input,
+  });
+}
+
+/**
+ * Section 18's "change status" — unlike a ride's forward-only lifecycle,
+ * a ticket's five states have no fixed transition graph (see apps/api's
+ * supportRepository.updateTicketStatus), so this is a plain "set it to
+ * whatever was picked" call, not a per-transition action per status.
+ */
+export function changeSupportTicketStatus(
+  accessToken: string,
+  ticketId: string,
+  status: AdminSupportTicketStatus,
+): Promise<AdminSupportTicketSummary> {
+  const input: ChangeSupportTicketStatusInput = { status };
+  return request<AdminSupportTicketSummary>(`/admin/support/tickets/${ticketId}/status`, {
+    method: 'PATCH',
     accessToken,
     body: input,
   });

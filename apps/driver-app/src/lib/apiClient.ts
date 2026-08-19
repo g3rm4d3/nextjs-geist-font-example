@@ -12,9 +12,12 @@ import type {
   Ride,
   RideOffer,
   RideRatings,
+  SupportTicket,
+  SupportTicketDetail,
   Vehicle,
 } from '@rideshare/types';
 import type {
+  CreateSupportTicketInput,
   DriverLocationPingInput,
   LoginInput,
   RegisterDriverInput,
@@ -254,4 +257,23 @@ export function unregisterPushToken(accessToken: string, token: string): Promise
     method: 'DELETE',
     accessToken,
   });
+}
+
+/** Section 18: "create support ticket. Ticket can reference ride." Same
+ * endpoints as passenger-app — a support ticket isn't a driver- or
+ * passenger-specific resource, just one owned by whichever authenticated
+ * user created it. */
+export function createSupportTicket(
+  accessToken: string,
+  input: CreateSupportTicketInput,
+): Promise<SupportTicketDetail> {
+  return request<SupportTicketDetail>('/support/tickets', { body: input, accessToken });
+}
+
+export function getSupportTickets(accessToken: string): Promise<SupportTicket[]> {
+  return request<SupportTicket[]>('/support/tickets', { method: 'GET', accessToken });
+}
+
+export function getSupportTicket(accessToken: string, ticketId: string): Promise<SupportTicketDetail> {
+  return request<SupportTicketDetail>(`/support/tickets/${ticketId}`, { method: 'GET', accessToken });
 }

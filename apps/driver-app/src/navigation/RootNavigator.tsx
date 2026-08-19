@@ -12,6 +12,7 @@ import { DriverHomeMapScreen } from '../screens/DriverHomeMapScreen';
 import { EarningsScreen } from '../screens/EarningsScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { IncomingRequestScreen } from '../screens/IncomingRequestScreen';
+import { NewSupportTicketScreen } from '../screens/NewSupportTicketScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PickupNavigationScreen } from '../screens/PickupNavigationScreen';
@@ -21,6 +22,7 @@ import { RideScreen } from '../screens/RideScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { SupportScreen } from '../screens/SupportScreen';
+import { SupportTicketDetailScreen } from '../screens/SupportTicketDetailScreen';
 import { VehicleScreen } from '../screens/VehicleScreen';
 import type { RootStackParamList } from './types';
 
@@ -122,6 +124,16 @@ export function RootNavigator() {
                   name="Support"
                   component={SupportScreen}
                   options={{ title: 'Support' }}
+                />
+                <Stack.Screen
+                  name="NewSupportTicket"
+                  component={NewSupportTicketScreen}
+                  options={{ title: 'New ticket' }}
+                />
+                <Stack.Screen
+                  name="SupportTicketDetail"
+                  component={SupportTicketDetailScreen}
+                  options={{ title: 'Ticket' }}
                 />
                 <Stack.Screen
                   name="Settings"

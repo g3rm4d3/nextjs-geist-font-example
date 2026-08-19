@@ -11,3 +11,4 @@ export * from './payment';
 export * from './pricing';
 export * from './rating';
 export * from './ride';
+export * from './support';

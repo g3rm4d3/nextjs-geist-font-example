@@ -20,6 +20,8 @@ export type RootStackParamList = {
   Profile: undefined;
   PaymentMethods: undefined;
   Support: undefined;
+  NewSupportTicket: undefined;
+  SupportTicketDetail: { ticketId: string };
   Settings: undefined;
   Notifications: undefined;
 };

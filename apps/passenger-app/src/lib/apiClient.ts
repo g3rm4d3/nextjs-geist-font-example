@@ -9,11 +9,14 @@ import type {
   Rating,
   Ride,
   RideRatings,
+  SupportTicket,
+  SupportTicketDetail,
   TestPaymentMethodSummary,
 } from '@rideshare/types';
 import type { RoutePreview } from '@rideshare/maps';
 import type {
   CreateRideRequestInput,
+  CreateSupportTicketInput,
   LoginInput,
   RegisterPassengerInput,
   RegisterPushTokenInput,
@@ -219,4 +222,20 @@ export function unregisterPushToken(accessToken: string, token: string): Promise
     method: 'DELETE',
     accessToken,
   });
+}
+
+/** Section 18: "create support ticket. Ticket can reference ride." */
+export function createSupportTicket(
+  accessToken: string,
+  input: CreateSupportTicketInput,
+): Promise<SupportTicketDetail> {
+  return request<SupportTicketDetail>('/support/tickets', { body: input, accessToken });
+}
+
+export function getSupportTickets(accessToken: string): Promise<SupportTicket[]> {
+  return request<SupportTicket[]>('/support/tickets', { method: 'GET', accessToken });
+}
+
+export function getSupportTicket(accessToken: string, ticketId: string): Promise<SupportTicketDetail> {
+  return request<SupportTicketDetail>(`/support/tickets/${ticketId}`, { method: 'GET', accessToken });
 }

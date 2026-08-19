@@ -33,6 +33,7 @@ import { paymentsRouter } from './routes/payments';
 import { pricingRouter } from './routes/pricing';
 import { ridesRouter } from './routes/rides';
 import { routePreviewRouter } from './routes/routePreview';
+import { supportRouter } from './routes/support';
 import { webhooksRouter } from './routes/webhooks';
 
 /**
@@ -100,6 +101,7 @@ export function createApp(): Express {
   app.use(ridesRouter);
   app.use(paymentsRouter);
   app.use(notificationsRouter);
+  app.use(supportRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

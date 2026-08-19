@@ -21,6 +21,8 @@ export type RootStackParamList = {
   History: undefined;
   Profile: undefined;
   Support: undefined;
+  NewSupportTicket: undefined;
+  SupportTicketDetail: { ticketId: string };
   Settings: undefined;
   Notifications: undefined;
 };

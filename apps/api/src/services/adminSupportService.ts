@@ -1,5 +1,5 @@
 import type { AdminSupportMessage, AdminSupportTicketDetail, AdminSupportTicketSummary } from '@rideshare/types';
-import type { ReplySupportTicketInput } from '@rideshare/validation';
+import type { ChangeSupportTicketStatusInput, ReplySupportTicketInput } from '@rideshare/validation';
 import type { AuditActorContext } from '../lib/auditContext';
 import { NotFoundError } from '../lib/errors';
 import { logger } from '../lib/logger';
@@ -8,6 +8,7 @@ import {
   findTicketAdminRowById,
   listMessagesForTicket,
   listTickets,
+  updateTicketStatus,
   type SupportTicketAdminRow,
 } from '../repositories/supportRepository';
 import { findUserById } from '../repositories/usersRepository';
@@ -138,4 +139,56 @@ export async function replyToTicket(
     body: message.body,
     createdAt: message.createdAt.toISOString(),
   };
+}
+
+/**
+ * PATCH /admin/support/tickets/:id/status — section 18's "change
+ * status." Unlike a ride's forward-only lifecycle, a ticket has no
+ * fixed transition graph in the spec, so this is a plain update, not a
+ * compare-and-swap restricted to a specific starting state (see
+ * supportRepository.updateTicketStatus's own comment) — an admin can
+ * reopen a RESOLVED ticket back to IN_PROGRESS just as freely as they
+ * can move OPEN to IN_PROGRESS.
+ *
+ * Audited the same as every other mutating admin action, and fires
+ * `support.update` best-effort — the same notification event a reply
+ * fires (Phase 16), since a status change (e.g. "we've resolved this")
+ * is just as much an update the ticket's owner should hear about as a
+ * new message is.
+ */
+export async function changeTicketStatus(
+  ticketId: string,
+  actor: AuditActorContext,
+  input: ChangeSupportTicketStatusInput,
+): Promise<AdminSupportTicketSummary> {
+  const before = await findTicketAdminRowById(ticketId);
+  if (!before) throw new NotFoundError('Support ticket not found');
+
+  const updated = await updateTicketStatus(ticketId, input.status);
+  if (!updated) throw new NotFoundError('Support ticket not found');
+
+  await recordAuditLog({
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    action: 'support.change_status',
+    entityType: 'support_ticket',
+    entityId: ticketId,
+    before: { status: before.status },
+    after: { status: updated.status },
+    ipAddress: actor.ipAddress,
+    requestId: actor.requestId,
+  });
+
+  try {
+    await notifySupportUpdate(updated.userId, ticketId);
+  } catch (notificationError) {
+    logger.error(
+      { err: notificationError, ticketId },
+      'Failed to send support-update notification for a status change',
+    );
+  }
+
+  const row = await findTicketAdminRowById(ticketId);
+  if (!row) throw new Error(`Support ticket ${ticketId} disappeared immediately after its status changed`);
+  return toSummary(row);
 }

@@ -1,5 +1,5 @@
 import type { AdminSupportMessage, AdminSupportTicketDetail, AdminSupportTicketSummary } from '@rideshare/types';
-import { replySupportTicketSchema } from '@rideshare/validation';
+import { changeSupportTicketStatusSchema, replySupportTicketSchema } from '@rideshare/validation';
 import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { requireIdParam } from '../lib/params';
@@ -65,5 +65,33 @@ adminSupportRouter.post(
       req.body,
     );
     sendSuccess(req, res, message);
+  },
+);
+
+/**
+ * Section 18's "change status" — ADMIN+, same "routine, reversible
+ * action" classification as reply (see replyToTicket route's own
+ * comment on why this isn't SUPER_ADMIN-gated).
+ */
+adminSupportRouter.patch(
+  '/admin/support/tickets/:id/status',
+  requireAuth,
+  requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
+  validateBody(changeSupportTicketStatusSchema),
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const ticketId = requireIdParam(req.params.id, 'ticket id');
+    const ticket: AdminSupportTicketSummary = await adminSupportService.changeTicketStatus(
+      ticketId,
+      {
+        userId: req.auth.userId,
+        role: req.auth.role,
+        requestId: req.requestId,
+        ipAddress: req.ip ?? null,
+      },
+      req.body,
+    );
+    sendSuccess(req, res, ticket);
   },
 );

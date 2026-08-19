@@ -8,3 +8,4 @@ export * from './payments';
 export * from './ratings';
 export * from './ride';
 export * from './routes';
+export * from './support';

@@ -220,3 +220,15 @@ export const notificationLimiter = createLimiter({
   message: 'Too many notification requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 18: a passenger/driver's own support-ticket create/list/read
+// endpoints. Opening a ticket is inherently infrequent — this is mostly
+// a backstop against a buggy client retry-looping the create call, same
+// reasoning as documentLimiter. Per-user, same convention as every
+// limiter above that sits behind requireAuth.
+export const supportLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 20,
+  message: 'Too many support requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

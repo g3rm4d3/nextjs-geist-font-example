@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { asc, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type SupportTicketRow = typeof schema.supportTickets.$inferSelect;
@@ -143,5 +143,81 @@ export async function createMessage(input: CreateMessageInput): Promise<SupportM
     })
     .returning();
   if (!row) throw new Error('Failed to insert support message');
+  return row;
+}
+
+export interface CreateTicketInput {
+  userId: string;
+  subject: string;
+  rideId: string | null;
+}
+
+/** Section 18: "Passenger App and Driver App: create support ticket."
+ * Always starts `OPEN` (the column default). */
+export async function createTicket(input: CreateTicketInput): Promise<SupportTicketRow> {
+  const [row] = await db
+    .insert(schema.supportTickets)
+    .values({
+      userId: input.userId,
+      subject: input.subject,
+      rideId: input.rideId,
+    })
+    .returning();
+  if (!row) throw new Error('Failed to insert support ticket');
+  return row;
+}
+
+/** A user's own ticket list, most recent first — same shape as every
+ * other "my own X" list in this codebase (documentsRepository.findDocumentsByDriver,
+ * notificationsRepository.listNotificationsForUser). */
+export async function findTicketsForUser(userId: string): Promise<SupportTicketRow[]> {
+  return db
+    .select()
+    .from(schema.supportTickets)
+    .where(eq(schema.supportTickets.userId, userId))
+    .orderBy(desc(schema.supportTickets.createdAt));
+}
+
+/** Plain lookup, no join — for an ownership check (supportService) or
+ * as the "before" read ahead of a status change (adminSupportService). */
+export async function findTicketById(ticketId: string): Promise<SupportTicketRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(schema.supportTickets)
+    .where(eq(schema.supportTickets.id, ticketId))
+    .limit(1);
+  return row;
+}
+
+/** The ticket-owner-facing message thread — deliberately excludes
+ * `isInternalNote` rows at the query level (not just filtered out
+ * downstream) so an admin-only note can never leak to the ticket's
+ * owner through this path, regardless of what the service layer does
+ * with the result. Oldest first, same reading order as the admin
+ * thread view (listMessagesForTicket). */
+export async function listUserVisibleMessagesForTicket(ticketId: string): Promise<SupportMessageRow[]> {
+  return db
+    .select()
+    .from(schema.supportMessages)
+    .where(and(eq(schema.supportMessages.ticketId, ticketId), eq(schema.supportMessages.isInternalNote, false)))
+    .orderBy(asc(schema.supportMessages.createdAt));
+}
+
+/**
+ * Section 18's "change status." Unlike a ride's forward-only lifecycle
+ * (rideLifecycleService's compare-and-swap transitions), a support
+ * ticket has no fixed transition graph in the spec — any of the five
+ * states can move to any other — so this is a plain unconditional
+ * update, not a conditional one keyed on the current status.
+ */
+export async function updateTicketStatus(
+  ticketId: string,
+  status: SupportTicketRow['status'],
+): Promise<SupportTicketRow | undefined> {
+  const [row] = await db
+    .update(schema.supportTickets)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(schema.supportTickets.id, ticketId))
+    .returning();
   return row;
 }

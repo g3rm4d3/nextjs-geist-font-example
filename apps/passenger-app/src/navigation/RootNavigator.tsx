@@ -7,6 +7,7 @@ import { AuthScreen } from '../screens/AuthScreen';
 import { DestinationSearchScreen } from '../screens/DestinationSearchScreen';
 import { DriverAssignedScreen } from '../screens/DriverAssignedScreen';
 import { HomeMapScreen } from '../screens/HomeMapScreen';
+import { NewSupportTicketScreen } from '../screens/NewSupportTicketScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PaymentMethodsScreen } from '../screens/PaymentMethodsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -21,6 +22,7 @@ import { SearchingDriverScreen } from '../screens/SearchingDriverScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { SupportScreen } from '../screens/SupportScreen';
+import { SupportTicketDetailScreen } from '../screens/SupportTicketDetailScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -125,6 +127,16 @@ export function RootNavigator() {
                 name="Support"
                 component={SupportScreen}
                 options={{ title: 'Support' }}
+              />
+              <Stack.Screen
+                name="NewSupportTicket"
+                component={NewSupportTicketScreen}
+                options={{ title: 'New ticket' }}
+              />
+              <Stack.Screen
+                name="SupportTicketDetail"
+                component={SupportTicketDetailScreen}
+                options={{ title: 'Ticket' }}
               />
               <Stack.Screen
                 name="Settings"
