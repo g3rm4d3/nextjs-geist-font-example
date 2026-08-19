@@ -174,6 +174,7 @@ describe('shared API types', () => {
       actualDurationSeconds: null,
       finalFareCents: null,
       cancellationReason: null,
+      cancellationFeeCents: null,
       requestedAt: new Date().toISOString(),
     };
 

@@ -68,6 +68,9 @@ export default function RideDetailPage() {
               />
               {ride.cancelledBy && <Field label="Cancelled by" value={ride.cancelledBy} />}
               {ride.cancellationReason && <Field label="Cancellation reason" value={ride.cancellationReason} />}
+              {ride.cancellationFeeCents !== null && (
+                <Field label="Cancellation fee" value={formatCents(ride.cancellationFeeCents)} />
+              )}
             </dl>
           </div>
 

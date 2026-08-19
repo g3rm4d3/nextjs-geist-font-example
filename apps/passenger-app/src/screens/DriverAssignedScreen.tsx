@@ -8,7 +8,7 @@ import { StarRatingDisplay } from '../components/StarRatingDisplay';
 import { useAuth } from '../context/AuthContext';
 import { useRideDraft } from '../context/RideDraftContext';
 import { ApiClientError, cancelRide, getAssignedDriver } from '../lib/apiClient';
-import { formatDurationMinutes } from '../lib/format';
+import { formatCents, formatDurationMinutes } from '../lib/format';
 import { computeRegionForTwoPoints } from '../lib/mapRegion';
 import { useRidePolling } from '../lib/useRidePolling';
 import type { RootStackParamList } from '../navigation/types';
@@ -75,6 +75,16 @@ export function DriverAssignedScreen({ navigation }: Props) {
       navigation.navigate('RideTracking');
       return;
     }
+    // Section 17: "if appropriate, driver cancellation can return ride
+    // to matching" — the default policy. The ride never reaches a
+    // CANCELLED_* status in that case; it goes back to SEARCHING_DRIVER
+    // instead, which this screen (unlike SearchingDriverScreen) has no
+    // other reason to see mid-flight.
+    if (ride.status === 'SEARCHING_DRIVER') {
+      Alert.alert('Driver unavailable', "Your driver had to cancel — we're finding you a new one.");
+      navigation.navigate('SearchingDriver');
+      return;
+    }
     if (ride.status.startsWith('CANCELLED')) {
       Alert.alert('Ride cancelled', 'Your driver cancelled this ride.');
       reset();
@@ -87,8 +97,17 @@ export function DriverAssignedScreen({ navigation }: Props) {
     setErrorMessage(null);
     setIsCancelling(true);
     try {
-      await cancelRide(accessToken, ride.id);
+      const cancelled = await cancelRide(accessToken, ride.id);
       reset();
+      // Section 17: "record potential TEST fee" — a driver was already
+      // dispatched at this point in the flow, so a passenger-initiated
+      // cancel here (unlike from SearchingDriverScreen) can carry one.
+      if (cancelled.cancellationFeeCents) {
+        Alert.alert(
+          'Ride cancelled',
+          `A cancellation fee of ${formatCents(cancelled.cancellationFeeCents)} applies since your driver was already on the way.`,
+        );
+      }
       navigation.navigate('HomeMap');
     } catch (error) {
       setErrorMessage(

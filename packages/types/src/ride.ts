@@ -51,8 +51,15 @@ export interface CreateRideRequest {
 /** The full ride record every ride-related endpoint returns — created,
  * accepted, advanced through the lifecycle, or cancelled, always this
  * same shape. `actual*`/`finalFareCents` are null until COMPLETED (see
- * rideLifecycleService.completeRide); `cancellationReason` is null
- * unless `status` is one of the three `CANCELLED_BY_*` values. */
+ * rideLifecycleService.completeRide); `cancellationReason`/
+ * `cancellationFeeCents` are null unless `status` is one of the three
+ * `CANCELLED_BY_*` values — a driver cancellation that returns the ride
+ * to `SEARCHING_DRIVER` (section 17) leaves both null, since the ride
+ * isn't terminally cancelled. `cancellationFeeCents` being null does
+ * not mean "no fee was recorded yet"; it means either the ride isn't
+ * cancelled, or it was cancelled under circumstances that never incur a
+ * fee (see docs/cancellation.md) — 0 and null are both "nothing owed,"
+ * only the wording of "recorded" differs. */
 export interface Ride {
   id: string;
   status: RideStatus;
@@ -65,6 +72,7 @@ export interface Ride {
   actualDurationSeconds: number | null;
   finalFareCents: number | null;
   cancellationReason: string | null;
+  cancellationFeeCents: number | null;
   requestedAt: string;
 }
 

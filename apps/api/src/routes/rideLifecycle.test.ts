@@ -396,7 +396,11 @@ describe('Ride lifecycle (Phase 9)', () => {
       expect(response.status).toBe(409);
     });
 
-    it('lets a driver cancel an assigned ride, freeing themselves back to ONLINE', async () => {
+    /** As of Phase 17, driver cancellation of an assigned ride returns
+     * it to matching by default (CANCELLED_BY_DRIVER is still a real,
+     * reachable status — see cancellation.test.ts for the toggle that
+     * produces it). */
+    it('lets a driver cancel an assigned ride, freeing themselves back to ONLINE and returning the ride to matching', async () => {
       const { rideId, driver } = await setUpAssignedRide();
 
       const response = await request(app)
@@ -405,7 +409,8 @@ describe('Ride lifecycle (Phase 9)', () => {
         .send({ reason: 'Vehicle issue' });
 
       expect(response.status).toBe(200);
-      expect(response.body.data.status).toBe('CANCELLED_BY_DRIVER');
+      expect(response.body.data.status).toBe('SEARCHING_DRIVER');
+      expect(response.body.data.cancellationReason).toBeNull();
 
       const [driverRow] = await db
         .select()

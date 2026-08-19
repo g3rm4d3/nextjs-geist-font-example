@@ -32,6 +32,7 @@ export function toRide(row: RideRow): Ride {
     actualDurationSeconds: row.actualDurationSeconds,
     finalFareCents: row.finalFareCents,
     cancellationReason: row.cancellationReason,
+    cancellationFeeCents: row.cancellationFeeCents,
     requestedAt: row.requestedAt.toISOString(),
   };
 }

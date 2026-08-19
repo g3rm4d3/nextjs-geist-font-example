@@ -154,6 +154,7 @@ export async function createRideAndAdvanceToSearching(
 export type RideLifecycleExtraFields = Partial<
   Pick<
     RideRow,
+    | 'driverId'
     | 'matchedAt'
     | 'startedAt'
     | 'completedAt'
@@ -163,6 +164,7 @@ export type RideLifecycleExtraFields = Partial<
     | 'cancelledAt'
     | 'cancelledBy'
     | 'cancellationReason'
+    | 'cancellationFeeCents'
   >
 >;
 
@@ -352,6 +354,7 @@ export interface RideAdminRow {
   cancelledAt: Date | null;
   cancelledBy: RideRow['cancelledBy'];
   cancellationReason: string | null;
+  cancellationFeeCents: number | null;
 }
 
 const RIDE_ADMIN_ROW_SELECTION = {
@@ -378,6 +381,7 @@ const RIDE_ADMIN_ROW_SELECTION = {
   cancelledAt: schema.rides.cancelledAt,
   cancelledBy: schema.rides.cancelledBy,
   cancellationReason: schema.rides.cancellationReason,
+  cancellationFeeCents: schema.rides.cancellationFeeCents,
 };
 
 const DEFAULT_ADMIN_RIDE_LIST_LIMIT = 100;

@@ -3,6 +3,7 @@ import type { Ride, RideStatus } from '@rideshare/types';
 import { ConflictError, NotFoundError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { toRide } from '../lib/rideMapper';
+import { findActivePricingConfig } from '../repositories/pricingConfigsRepository';
 import { findRideLocationSamples } from '../repositories/rideLocationSamplesRepository';
 import {
   advanceRideStatus,
@@ -10,12 +11,14 @@ import {
   type RideLifecycleExtraFields,
   type RideRow,
 } from '../repositories/ridesRepository';
+import { findSettingByKey } from '../repositories/systemSettingsRepository';
 import {
   findDriverProfileByUserId,
   findPassengerProfileById,
   findPassengerProfileByUserId,
 } from '../repositories/usersRepository';
 import { recordEarningsForCompletedRide } from './earningsService';
+import { advanceToNextCandidate } from './matchingService';
 import {
   notifyDriverApproaching,
   notifyDriverArrived,
@@ -330,6 +333,112 @@ const CANCELLABLE_STATUSES: readonly RideStatus[] = [
 
 type CancelActor = 'PASSENGER' | 'DRIVER' | 'SYSTEM';
 
+/** Section 17: "cancellation rules configurable" — which ride states
+ * count as "a driver was already dispatched" for cancellation-fee
+ * purposes. Cancelling before this (REQUESTED/SEARCHING_DRIVER) costs
+ * the passenger nothing since no driver has committed time yet. */
+const FEE_APPLICABLE_STATUSES: readonly RideStatus[] = [
+  'DRIVER_ASSIGNED',
+  'DRIVER_EN_ROUTE',
+  'DRIVER_ARRIVED',
+];
+
+/**
+ * Section 17's "record ... potential TEST fee." The amount itself is
+ * configurable the same way fares are — `pricing_configs.cancellationFeeCents`
+ * (already existed, versioned via the existing SUPER_ADMIN "change
+ * pricing" endpoint; no new config surface needed for the amount).
+ * Only a PASSENGER cancellation incurs it, and only once a driver has
+ * actually been dispatched (FEE_APPLICABLE_STATUSES) — Stage 1 never
+ * charges a driver, and a system cancellation is never anyone's fault.
+ * "Potential" in the spec's own wording is deliberate: this computes
+ * and *records* what the fee would be; nothing here actually charges
+ * it (no payment_records row is created) — see docs/cancellation.md's
+ * known limitations.
+ */
+async function computeCancellationFeeCents(
+  actor: CancelActor,
+  rideStatusAtCancellation: RideStatus,
+): Promise<number> {
+  if (actor !== 'PASSENGER') return 0;
+  if (!FEE_APPLICABLE_STATUSES.includes(rideStatusAtCancellation)) return 0;
+  const config = await findActivePricingConfig();
+  return config?.cancellationFeeCents ?? 0;
+}
+
+const DRIVER_RETURN_TO_MATCHING_SETTING_KEY = 'cancellation.driver_return_to_matching';
+
+/**
+ * Section 17: "cancellation rules configurable" ... "if appropriate,
+ * driver cancellation can return ride to matching." Reuses Phase 14's
+ * generic system_settings key/value mechanism rather than a new
+ * dedicated config surface — an operator toggles this the same way as
+ * any other platform setting, via `PUT /admin/settings/:key` (see
+ * docs/cancellation.md). Defaults to `true` (return to matching) when
+ * the key has never been set: losing a driver mid-dispatch shouldn't
+ * force the passenger to start over unless an operator has
+ * deliberately turned that behavior off.
+ */
+async function driverCancellationReturnsToMatching(): Promise<boolean> {
+  const setting = await findSettingByKey(DRIVER_RETURN_TO_MATCHING_SETTING_KEY);
+  if (!setting) return true;
+  return setting.value !== false;
+}
+
+/**
+ * Section 17's "driver cancellation can return ride to matching" path.
+ * Transitions the ride back to SEARCHING_DRIVER instead of a terminal
+ * CANCELLED_BY_DRIVER — un-assigning the driver, releasing them to
+ * ONLINE, and logging the cancellation (actor, reason, ride state,
+ * timestamp, fee — always 0 for a driver) into `ride_events.metadata`,
+ * the same "Record:" fields the terminal path writes below, just
+ * without touching `rides.cancelled*`/`cancellationFeeCents` — the
+ * ride isn't cancelled, so there's nothing terminal to record on the
+ * row itself (see that column's own doc comment). Re-triggers matching
+ * best-effort afterward, same "must not fail the primary action"
+ * precedent as rideService.requestRide's own startMatching call;
+ * matchingService.findTriedDriverIdsForRide already excludes this
+ * driver's own (still-present) ride_requests row, so they're never
+ * immediately re-offered the ride they just gave up.
+ */
+async function cancelByDriverAndReturnToMatching(
+  ride: RideRow,
+  actorUserId: string | null,
+  reason: string | undefined,
+): Promise<Ride> {
+  const updated = await advanceRideStatus({
+    rideId: ride.id,
+    fromStatus: ride.status,
+    toStatus: 'SEARCHING_DRIVER',
+    driverId: ride.driverId ?? undefined,
+    extraFields: { driverId: null, matchedAt: null },
+    actorType: 'DRIVER',
+    actorUserId,
+    eventMetadata: {
+      cancelledBy: 'DRIVER',
+      reason: reason ?? null,
+      cancellationFeeCents: 0,
+      returnedToMatching: true,
+    },
+    releaseDriverId: ride.driverId ?? undefined,
+  });
+
+  if (!updated) {
+    throw new ConflictError('This ride is no longer in a state that allows this action');
+  }
+
+  try {
+    await advanceToNextCandidate(ride.id);
+  } catch (matchingError) {
+    logger.error(
+      { err: matchingError, rideId: ride.id },
+      'Matching failed to restart after a driver cancellation',
+    );
+  }
+
+  return toRide(updated);
+}
+
 async function cancelRide(
   rideId: string,
   actor: CancelActor,
@@ -344,6 +453,17 @@ async function cancelRide(
   if (!CANCELLABLE_STATUSES.includes(ride.status)) {
     throw new ConflictError(`A ride in ${ride.status} can no longer be cancelled`);
   }
+
+  // Section 17: "if appropriate, driver cancellation can return ride to
+  // matching" — appropriate here means a driver was actually dispatched
+  // (there's a ride worth rescuing) and the operator's configured
+  // policy allows it. Passenger and system cancellations always
+  // terminate the ride; this is the one actor/branch that doesn't.
+  if (actor === 'DRIVER' && ride.driverId && (await driverCancellationReturnsToMatching())) {
+    return cancelByDriverAndReturnToMatching(ride, actorUserId, reason);
+  }
+
+  const cancellationFeeCents = await computeCancellationFeeCents(actor, ride.status);
 
   const toStatus: RideStatus =
     actor === 'PASSENGER'
@@ -361,9 +481,11 @@ async function cancelRide(
       cancelledAt: new Date(),
       cancelledBy: actor,
       cancellationReason: reason ?? null,
+      cancellationFeeCents,
     },
     actorType: actor,
     actorUserId,
+    eventMetadata: { reason: reason ?? null, cancellationFeeCents },
     // A driver was assigned iff ride.driverId is set — cancelling before
     // a match (REQUESTED/SEARCHING_DRIVER) has no driver to release.
     releaseDriverId: ride.driverId ?? undefined,

@@ -1,0 +1,2 @@
+ALTER TABLE "rides" ADD COLUMN "cancellation_fee_cents" integer;--> statement-breakpoint
+ALTER TABLE "rides" ADD CONSTRAINT "rides_cancellation_fee_non_negative_chk" CHECK ("rides"."cancellation_fee_cents" IS NULL OR "rides"."cancellation_fee_cents" >= 0);

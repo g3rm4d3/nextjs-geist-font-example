@@ -114,6 +114,11 @@ export interface AdminRideDetail extends AdminRideSummary {
   cancelledAt: string | null;
   cancelledBy: 'PASSENGER' | 'DRIVER' | 'SYSTEM' | null;
   cancellationReason: string | null;
+  /** Section 17's "record potential TEST fee" — null unless this ride
+   * was terminally cancelled with a fee applicable (see
+   * docs/cancellation.md's rule); a driver cancellation that returned
+   * the ride to matching instead of terminating it never sets this. */
+  cancellationFeeCents: number | null;
 }
 
 export interface AdminPaymentSummary {

@@ -57,6 +57,13 @@
       "when": 1787107933465,
       "tag": "0007_material_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787110318753,
+      "tag": "0008_solid_hairball",
+      "breakpoints": true
     }
   ]
 }

@@ -64,6 +64,16 @@ export const rides = pgTable(
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     cancelledBy: cancelledByActorEnum('cancelled_by'),
     cancellationReason: text('cancellation_reason'),
+    // Phase 17: the cancellation fee (if any) recorded at the moment a
+    // ride was terminally cancelled — see rideLifecycleService's
+    // computeCancellationFeeCents for the rule (currently: a PASSENGER
+    // cancelling after a driver was already dispatched). Null (not 0)
+    // until the ride is actually terminally cancelled, same "null means
+    // not applicable yet" convention as finalFareCents/completedAt.
+    // Never set on the "driver cancellation returns ride to matching"
+    // path — that ride isn't terminally cancelled, so there's nothing
+    // to record here yet.
+    cancellationFeeCents: integer('cancellation_fee_cents'),
 
     ...timestamps,
   },
@@ -114,6 +124,10 @@ export const rides = pgTable(
     check(
       'rides_cancelled_fields_consistent_chk',
       sql`(${table.cancelledAt} IS NULL AND ${table.cancelledBy} IS NULL) OR (${table.cancelledAt} IS NOT NULL AND ${table.cancelledBy} IS NOT NULL)`,
+    ),
+    check(
+      'rides_cancellation_fee_non_negative_chk',
+      sql`${table.cancellationFeeCents} IS NULL OR ${table.cancellationFeeCents} >= 0`,
     ),
   ],
 );

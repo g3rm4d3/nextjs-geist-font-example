@@ -44,5 +44,6 @@ export async function getRideDetail(rideId: string): Promise<AdminRideDetail> {
     cancelledAt: row.cancelledAt ? row.cancelledAt.toISOString() : null,
     cancelledBy: row.cancelledBy,
     cancellationReason: row.cancellationReason,
+    cancellationFeeCents: row.cancellationFeeCents,
   };
 }
