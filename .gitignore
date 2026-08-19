@@ -49,3 +49,7 @@ ios/
 # Misc
 *.pem
 .eslintcache
+
+# Phase 19 load simulator's generated report (a run artifact, not source —
+# see docs/simulation-results.md for the human-written summary)
+apps/api/scripts/output/

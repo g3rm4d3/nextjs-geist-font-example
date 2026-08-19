@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "simulate:drivers": "tsx scripts/locationSimulator.ts"
+    "simulate:drivers": "tsx scripts/locationSimulator.ts",
+    "simulate:load": "tsx scripts/simulate.ts"
   },
   "dependencies": {
     "@rideshare/auth": "*",

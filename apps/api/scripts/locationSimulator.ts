@@ -33,28 +33,28 @@
  *   SIMULATOR_DURATION_MS  default 30000 (0 = run until Ctrl+C)
  *
  * Reuses apps/api's own db client/pool (src/db/client.ts, src/db/pool.ts)
- * and token signer (src/lib/tokens.ts) rather than duplicating them —
- * this script lives inside apps/api, not as a standalone package script,
- * so it can. Run via `npm run simulate:drivers --workspace=apps/api` so
- * apps/api/.env's DATABASE_URL and JWT secret (src/config/env.ts
- * validates the whole set) are picked up.
+ * rather than duplicating them — this script lives inside apps/api, not
+ * as a standalone package script, so it can. Identity creation (users +
+ * driver_profiles rows, signed access token) and the shared city-center
+ * constant live in simulatorSupport.ts, alongside Phase 19's simulate.ts —
+ * see that module's own comment for why. Run via
+ * `npm run simulate:drivers --workspace=apps/api` so apps/api/.env's
+ * DATABASE_URL and JWT secret (src/config/env.ts validates the whole
+ * set) are picked up.
  */
 import { randomUUID } from 'node:crypto';
-import { schema } from '@rideshare/database';
-import { db } from '../src/db/client';
 import { pool } from '../src/db/pool';
-import { signAccessToken } from '../src/lib/tokens';
+import {
+  createVirtualDriver as createVirtualDriverIdentity,
+  randomOffset,
+  sleep,
+} from './simulatorSupport';
 
 const API_URL = process.env.SIMULATOR_API_URL ?? 'http://localhost:4000';
 const DRIVER_COUNT = Number(process.env.SIMULATOR_DRIVER_COUNT ?? 50);
 const TICK_MS = Number(process.env.SIMULATOR_TICK_MS ?? 3000);
 const DURATION_MS = Number(process.env.SIMULATOR_DURATION_MS ?? 30000);
 
-// Same fictional city center used by the seed data and both mobile
-// apps' mock-GPS fallback — keeps every dev-mode coordinate in this
-// project clustered in one place instead of scattered across the globe.
-const CITY_CENTER = { latitude: 39.7684, longitude: -86.158 };
-const SPAWN_SPREAD_DEGREES = 0.03; // ~3km scatter radius at spawn
 const DRIFT_DEGREES = 0.0015; // per-tick random-walk step
 
 interface VirtualDriver {
@@ -64,44 +64,19 @@ interface VirtualDriver {
   longitude: number;
 }
 
-function randomOffset(maxDegrees: number): number {
-  return (Math.random() - 0.5) * 2 * maxDegrees;
-}
-
 /**
- * Inserts one already-APPROVED driver directly (users + driver_profiles)
- * and signs a real access token for it — see the module comment for why
- * this bypasses the public register/login endpoints entirely.
+ * Thin wrapper over simulatorSupport's createVirtualDriver: this script
+ * only needs {index, accessToken, latitude, longitude} to run its
+ * ping loop, not the full identity (userId/driverProfileId) simulate.ts
+ * needs to cross-reference matching/accept state.
  */
-async function createVirtualDriver(index: number): Promise<VirtualDriver> {
-  const runId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
-
-  const [user] = await db
-    .insert(schema.users)
-    .values({
-      email: `sim-driver-${runId}-${index}@example-test.test`,
-      role: 'DRIVER',
-      passwordHash: null,
-    })
-    .returning({ id: schema.users.id });
-  if (!user) throw new Error(`Failed to create virtual driver user ${index}`);
-
-  await db.insert(schema.driverProfiles).values({
-    userId: user.id,
-    firstName: 'Sim',
-    lastName: `Driver${index}`,
-    licenseNumber: `SIM-DL-${runId}-${index}`,
-    licenseState: 'CA',
-    onboardingStatus: 'APPROVED',
-  });
-
-  const accessToken = signAccessToken({ userId: user.id, role: 'DRIVER' });
-
+async function createVirtualDriver(runId: string, index: number): Promise<VirtualDriver> {
+  const identity = await createVirtualDriverIdentity(runId, index);
   return {
-    index,
-    accessToken,
-    latitude: CITY_CENTER.latitude + randomOffset(SPAWN_SPREAD_DEGREES),
-    longitude: CITY_CENTER.longitude + randomOffset(SPAWN_SPREAD_DEGREES),
+    index: identity.index,
+    accessToken: identity.accessToken,
+    latitude: identity.latitude,
+    longitude: identity.longitude,
   };
 }
 
@@ -148,19 +123,17 @@ async function pingLocation(driver: VirtualDriver): Promise<boolean> {
   return response.ok;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function main(): Promise<void> {
   console.log(
     `Simulating ${DRIVER_COUNT} virtual drivers against ${API_URL} ` +
       `(tick every ${TICK_MS}ms, ${DURATION_MS > 0 ? `${DURATION_MS}ms total` : 'until Ctrl+C'})`,
   );
 
+  const runId = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+
   console.log('Creating virtual drivers (direct DB insert, already APPROVED)...');
   const drivers: VirtualDriver[] = await Promise.all(
-    Array.from({ length: DRIVER_COUNT }, (_, index) => createVirtualDriver(index)),
+    Array.from({ length: DRIVER_COUNT }, (_, index) => createVirtualDriver(runId, index)),
   );
 
   console.log('Going online (real PATCH /drivers/me/availability)...');
