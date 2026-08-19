@@ -14,6 +14,7 @@ import type {
   AdminRatingSummary,
   AdminRideDetail,
   AdminRideSummary,
+  AdminSupportMessage,
   AdminSupportTicketDetail,
   AdminSupportTicketSummary,
   AdminSystemSetting,
@@ -29,6 +30,7 @@ import type {
 import type {
   ChangePricingInput,
   LoginInput,
+  ReplySupportTicketInput,
   RequestDocumentReplacementInput,
   ReviewDocumentInput,
   UpsertSystemSettingInput,
@@ -286,6 +288,24 @@ export function getAdminSupportTicket(
   return request<AdminSupportTicketDetail>(`/admin/support/tickets/${ticketId}`, {
     method: 'GET',
     accessToken,
+  });
+}
+
+/**
+ * Phase 16's minimal admin-reply endpoint — see apps/api's
+ * adminSupportService.replyToTicket for why this is scoped to just
+ * enabling the "support update" notification event, not a full
+ * ticket-lifecycle rewrite. `isInternalNote` omitted means a real reply
+ * (visible to the ticket's owner, and what fires the notification).
+ */
+export function replySupportTicket(
+  accessToken: string,
+  ticketId: string,
+  input: ReplySupportTicketInput,
+): Promise<AdminSupportMessage> {
+  return request<AdminSupportMessage>(`/admin/support/tickets/${ticketId}/messages`, {
+    accessToken,
+    body: input,
   });
 }
 

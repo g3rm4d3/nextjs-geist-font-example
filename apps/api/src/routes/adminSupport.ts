@@ -56,7 +56,12 @@ adminSupportRouter.post(
     const ticketId = requireIdParam(req.params.id, 'ticket id');
     const message: AdminSupportMessage = await adminSupportService.replyToTicket(
       ticketId,
-      req.auth.userId,
+      {
+        userId: req.auth.userId,
+        role: req.auth.role,
+        requestId: req.requestId,
+        ipAddress: req.ip ?? null,
+      },
       req.body,
     );
     sendSuccess(req, res, message);

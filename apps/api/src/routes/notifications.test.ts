@@ -363,6 +363,15 @@ describe('Document expiration sweep (Phase 16)', () => {
   });
 });
 
+async function latestAuditLogFor(entityId: string): Promise<typeof schema.auditLogs.$inferSelect | undefined> {
+  const [row] = await db
+    .select()
+    .from(schema.auditLogs)
+    .where(eq(schema.auditLogs.entityId, entityId))
+    .orderBy(desc(schema.auditLogs.createdAt));
+  return row;
+}
+
 describe('Admin support reply notification event (Phase 16)', () => {
   async function createTicketFor(userId: string): Promise<string> {
     const [ticket] = await db
@@ -388,6 +397,21 @@ describe('Admin support reply notification event (Phase 16)', () => {
 
     const events = await notificationsFor(passenger.userId);
     expect(events.some((event) => event.type === 'support.update')).toBe(true);
+  });
+
+  it('generates an audit record for the reply (sensitive admin operations are audited)', async () => {
+    const passenger = await registerPassenger();
+    const token = await adminToken();
+    const ticketId = await createTicketFor(passenger.userId);
+
+    await request(app)
+      .post(`/admin/support/tickets/${ticketId}/messages`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ body: 'We are looking into this.' });
+
+    const audit = await latestAuditLogFor(ticketId);
+    expect(audit?.action).toBe('support.reply');
+    expect(audit?.entityType).toBe('support_ticket');
   });
 
   it('does not fire a notification for an internal note', async () => {

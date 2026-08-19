@@ -1,4 +1,4 @@
-import { pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { primaryId, timestamps } from './_helpers';
 import { users } from './users';
 
@@ -24,5 +24,12 @@ export const pushTokens = pgTable(
     platform: text('platform'),
     ...timestamps,
   },
-  (table) => [uniqueIndex('push_tokens_token_key').on(table.token)],
+  (table) => [
+    uniqueIndex('push_tokens_token_key').on(table.token),
+    // notificationsRepository.findPushTokensForUser's WHERE user_id = ...
+    // lookup — same "index every FK a query filters on" convention as
+    // every other table in this schema (notifications_user_id_idx,
+    // driver_documents_driver_id_idx, etc.).
+    index('push_tokens_user_id_idx').on(table.userId),
+  ],
 );

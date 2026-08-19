@@ -50,6 +50,13 @@
       "when": 1787104563364,
       "tag": "0006_warm_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787107933465,
+      "tag": "0007_material_micromax",
+      "breakpoints": true
     }
   ]
 }

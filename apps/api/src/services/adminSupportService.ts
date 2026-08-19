@@ -1,5 +1,6 @@
 import type { AdminSupportMessage, AdminSupportTicketDetail, AdminSupportTicketSummary } from '@rideshare/types';
 import type { ReplySupportTicketInput } from '@rideshare/validation';
+import type { AuditActorContext } from '../lib/auditContext';
 import { NotFoundError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import {
@@ -10,6 +11,7 @@ import {
   type SupportTicketAdminRow,
 } from '../repositories/supportRepository';
 import { findUserById } from '../repositories/usersRepository';
+import { recordAuditLog } from './auditService';
 import { notifySupportUpdate } from './notificationService';
 
 function userName(row: {
@@ -77,10 +79,16 @@ export async function getSupportTicketDetail(ticketId: string): Promise<AdminSup
  * no notification; a real reply does, best-effort, same "must not fail
  * the primary action" precedent as every other notification trigger in
  * this codebase.
+ *
+ * Also audited (Section 14's "sensitive admin operations generate
+ * audit records") — every other mutating admin action in this codebase
+ * (approve/reject/suspend, document review, background checks, pricing/
+ * settings writes) records an audit entry, and a support reply is no
+ * less a mutating admin action than those.
  */
 export async function replyToTicket(
   ticketId: string,
-  adminUserId: string,
+  actor: AuditActorContext,
   input: ReplySupportTicketInput,
 ): Promise<AdminSupportMessage> {
   const ticket = await findTicketAdminRowById(ticketId);
@@ -88,9 +96,21 @@ export async function replyToTicket(
 
   const message = await createMessage({
     ticketId,
-    authorUserId: adminUserId,
+    authorUserId: actor.userId,
     isInternalNote: input.isInternalNote ?? false,
     body: input.body,
+  });
+
+  await recordAuditLog({
+    actorUserId: actor.userId,
+    actorRole: actor.role,
+    action: 'support.reply',
+    entityType: 'support_ticket',
+    entityId: ticketId,
+    before: null,
+    after: { messageId: message.id, isInternalNote: message.isInternalNote },
+    ipAddress: actor.ipAddress,
+    requestId: actor.requestId,
   });
 
   if (!message.isInternalNote) {
@@ -110,7 +130,7 @@ export async function replyToTicket(
   // ADMIN/SUPER_ADMIN accounts have no passenger/driver profile (and so
   // no first/last name — see packages/database/src/schema/users.ts) —
   // their email is the only identifying label available here.
-  const admin = await findUserById(adminUserId);
+  const admin = await findUserById(actor.userId);
   return {
     id: message.id,
     authorName: admin ? admin.email : null,

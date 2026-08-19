@@ -5,15 +5,29 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/AdminShell';
 import { useAdminAuth } from '@/context/AdminAuthContext';
-import { ApiClientError, getAdminSupportTicket } from '@/lib/apiClient';
+import { ApiClientError, getAdminSupportTicket, replySupportTicket } from '@/lib/apiClient';
 
 /** "Inspect" a support ticket — the full message thread, oldest first,
- * including admin-only internal notes. */
+ * including admin-only internal notes — plus Phase 16's reply form (the
+ * only writer of support_messages in Stage 1; see apps/api's
+ * adminSupportService.replyToTicket for why this isn't a full Section
+ * 18 ticket lifecycle). A non-internal-note reply is what fires the
+ * "support update" notification to the ticket's owner. */
 export default function SupportTicketDetailPage() {
   const params = useParams<{ id: string }>();
   const { accessToken } = useAdminAuth();
   const [ticket, setTicket] = useState<AdminSupportTicketDetail | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [isInternalNote, setIsInternalNote] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  // Bumped after a successful reply to re-trigger the fetch effect below
+  // — the actual fetch call stays inline in the effect (rather than
+  // referencing an externally-defined function), same
+  // react-hooks/set-state-in-effect workaround the documents page uses
+  // for its own reload-after-write.
+  const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -34,7 +48,29 @@ export default function SupportTicketDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, params.id]);
+  }, [accessToken, params.id, refreshCount]);
+
+  async function handleReply() {
+    if (!accessToken) return;
+    const body = replyBody.trim();
+    if (!body) {
+      setErrorMessage('A reply body is required.');
+      return;
+    }
+
+    setIsSending(true);
+    setErrorMessage(null);
+    try {
+      await replySupportTicket(accessToken, params.id, { body, isInternalNote });
+      setReplyBody('');
+      setIsInternalNote(false);
+      setRefreshCount((count) => count + 1);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not send the reply.');
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
     <AdminShell title={ticket?.subject ?? 'Support ticket'} subtitle={ticket?.status} errorMessage={errorMessage}>
@@ -69,6 +105,36 @@ export default function SupportTicketDetailPage() {
               </div>
             ))
           )}
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <label htmlFor="reply-body" className="mb-1 block text-xs font-semibold text-slate-600">
+              Reply
+            </label>
+            <textarea
+              id="reply-body"
+              className="w-full rounded border border-slate-300 p-2 text-sm"
+              rows={3}
+              value={replyBody}
+              onChange={(event) => setReplyBody(event.target.value)}
+              placeholder="Write a reply to the ticket owner…"
+            />
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={isInternalNote}
+                onChange={(event) => setIsInternalNote(event.target.checked)}
+              />
+              Internal note only (not visible to the ticket owner, no notification sent)
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleReply()}
+              disabled={isSending}
+              className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {isSending ? 'Sending…' : isInternalNote ? 'Add internal note' : 'Send reply'}
+            </button>
+          </div>
         </div>
       )}
     </AdminShell>

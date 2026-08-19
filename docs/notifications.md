@@ -154,11 +154,16 @@ unwireable, this phase adds exactly one endpoint:
 `POST /admin/support/tickets/:id/messages` (`ADMIN`+, same "routine
 action" classification as document approve/reject) — `{ body,
 isInternalNote? }`. An internal note is never visible to the ticket's
-owner, so it fires no notification; a real reply does. This is
+owner, so it fires no notification; a real reply does. Audited
+(`support.reply`), same "sensitive admin operations generate audit
+records" convention every other mutating admin action follows. This is
 deliberately **not** a reimplementation of Section 18: no ticket
 creation, no status transitions, no passenger/driver-facing reply UI —
 just enough to make `support.update` a genuine, functionally-wired
 trigger instead of a notification type nothing can ever fire.
+`admin-app`'s `/support/[id]` page gained a reply form (body + internal-
+note checkbox) so the endpoint is actually reachable through the app,
+not just directly against the API.
 
 ## Routes
 
@@ -189,9 +194,11 @@ available: no physical device, permission denied, or no EAS project
 configured. Both apps gained an `expo-notifications` dependency and its
 plugin entry in `app.config.ts`.
 
+**admin-app**: `/support/[id]` gained the reply form described above.
+
 ## Tests
 
-`apps/api/src/routes/notifications.test.ts` (18 tests), against a real
+`apps/api/src/routes/notifications.test.ts` (19 tests), against a real
 PostgreSQL database, driving every event through its actual production
 code path (never notificationService called directly):
 
@@ -206,9 +213,9 @@ code path (never notificationService called directly):
   notified exactly once, `expiration_notified_at` is stamped, and a
   repeat sweep does not re-notify; a document outside the warning
   window is never notified.
-- Admin support reply: a real reply notifies the ticket owner; an
-  internal note does not; an empty body is `400`; an unknown ticket is
-  `404`.
+- Admin support reply: a real reply notifies the ticket owner and
+  writes a `support.reply` audit record; an internal note does not
+  notify; an empty body is `400`; an unknown ticket is `404`.
 - List/read/read-all: a fresh list has every notification unread with
   `unreadCount` matching; marking one read is idempotent and `404`s for
   a mismatched owner or unknown id; mark-all-read zeroes the unread
@@ -217,13 +224,33 @@ code path (never notificationService called directly):
   different user re-homes it (no duplicate row), unregister is scoped
   to the current owner (a non-owner's delete is a silent no-op).
 
-Full repo verification after this phase: lint, typecheck, and build all
-pass across every workspace (including the new `@rideshare/notifications`
-package); a from-zero `db:migrate` is clean; 212 tests passing in
-`apps/api` (up from 194 before this phase); `packages/notifications`
-(6 tests) passes on its own; passenger-app and driver-app's existing
-unit test suites are unaffected; `next build` still produces every
-admin-app route with no errors.
+Full repo verification after this phase (including a follow-up
+self-review pass — see "Re-review fixes" below): lint, typecheck, and
+build all pass across every workspace (including the new
+`@rideshare/notifications` package); a from-zero `db:migrate` is clean;
+213 tests passing in `apps/api` (up from 194 before this phase);
+`packages/notifications` (6 tests) passes on its own; passenger-app and
+driver-app's existing unit test suites are unaffected; `next build`
+still produces every admin-app route with no errors.
+
+## Re-review fixes
+
+A follow-up self-review against the spec's general conventions (not new
+requirements — things this phase's own implementation should already
+have matched) found and fixed three gaps:
+
+- **Admin support reply wasn't audited.** Section 14's "sensitive admin
+  operations generate audit records" applies to every mutating admin
+  action in this codebase; `replyToTicket` was missing a
+  `recordAuditLog` call. Fixed — `support.reply`, entity type
+  `support_ticket`.
+- **`push_tokens.user_id` had no index**, unlike every other
+  foreign-key column this codebase queries by (`notifications_user_id_idx`,
+  `driver_documents_driver_id_idx`, etc.). Fixed — migration
+  `0007_material_micromax.sql`.
+- **The admin support reply endpoint had no admin-app UI calling it** —
+  functional and tested against the API directly, but unreachable
+  through normal app use. Fixed — `/support/[id]` gained a reply form.
 
 ## Manual test procedure
 
