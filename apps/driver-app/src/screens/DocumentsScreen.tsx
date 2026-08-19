@@ -1,9 +1,26 @@
 import type { DocumentType, DriverDocument } from '@rideshare/types';
+import type { UploadDocumentInput } from '@rideshare/validation';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { ApiClientError, getOwnDocuments, uploadDocument } from '../lib/apiClient';
+
+/**
+ * Phase 20 (security review): uploadDocumentSchema's `contentType` is now
+ * a closed set of real document content types, not an arbitrary string —
+ * see docs/security.md. expo-image-picker's own `mimeType` is a plain
+ * `string | undefined` (it reflects whatever the OS/photo library
+ * reports), so it needs narrowing to that set here rather than passed
+ * through — anything this library-restricted picker (mediaTypes:
+ * ['images']) could plausibly report that isn't already png/webp falls
+ * back to jpeg, always a safe, accurate-enough default for a photo.
+ */
+function normalizeImageContentType(mimeType: string | undefined): UploadDocumentInput['contentType'] {
+  if (mimeType === 'image/png') return 'image/png';
+  if (mimeType === 'image/webp') return 'image/webp';
+  return 'image/jpeg';
+}
 
 const DOCUMENT_TYPES: { type: DocumentType; label: string }[] = [
   { type: 'DRIVER_LICENSE', label: 'Driver License' },
@@ -106,7 +123,7 @@ export function DocumentsScreen() {
       await uploadDocument(accessToken, {
         documentType: type,
         contentBase64,
-        contentType: asset.mimeType || 'image/jpeg',
+        contentType: normalizeImageContentType(asset.mimeType),
       });
       setRefreshCount((count) => count + 1);
     } catch (error) {

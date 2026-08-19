@@ -8,7 +8,7 @@ import { Router } from 'express';
 import { UnauthorizedError } from '../lib/errors';
 import { sendSuccess } from '../lib/respond';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { locationPingLimiter } from '../middleware/rateLimit';
+import { locationPingLimiter, profileLimiter } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
 import { getMe } from '../services/authService';
 import * as driverService from '../services/driverService';
@@ -22,7 +22,7 @@ export const driversRouter = Router();
  * driverOnboardingStatus (section 8/9 — a driver can check their
  * application status even before being APPROVED).
  */
-driversRouter.get('/drivers/me', requireAuth, requireRole('DRIVER'), async (req, res) => {
+driversRouter.get('/drivers/me', requireAuth, requireRole('DRIVER'), profileLimiter, async (req, res) => {
   if (!req.auth) throw new UnauthorizedError();
   const user = await getMe(req.auth.userId);
   sendSuccess(req, res, user);
@@ -33,11 +33,17 @@ driversRouter.get('/drivers/me', requireAuth, requireRole('DRIVER'), async (req,
  * screens need more than AuthUser carries (a full vehicle, not just an
  * onboarding status string) — this is that dedicated read model.
  */
-driversRouter.get('/drivers/me/profile', requireAuth, requireRole('DRIVER'), async (req, res) => {
-  if (!req.auth) throw new UnauthorizedError();
-  const profile: DriverProfileSummary = await driverService.getDriverProfileSummary(req.auth.userId);
-  sendSuccess(req, res, profile);
-});
+driversRouter.get(
+  '/drivers/me/profile',
+  requireAuth,
+  requireRole('DRIVER'),
+  profileLimiter,
+  async (req, res) => {
+    if (!req.auth) throw new UnauthorizedError();
+    const profile: DriverProfileSummary = await driverService.getDriverProfileSummary(req.auth.userId);
+    sendSuccess(req, res, profile);
+  },
+);
 
 /**
  * Upsert rather than create: a driver has at most one active vehicle
@@ -48,6 +54,7 @@ driversRouter.put(
   '/drivers/me/vehicle',
   requireAuth,
   requireRole('DRIVER'),
+  profileLimiter,
   validateBody(upsertVehicleSchema),
   async (req, res) => {
     if (!req.auth) throw new UnauthorizedError();
@@ -65,6 +72,7 @@ driversRouter.post(
   '/drivers/me/submit-application',
   requireAuth,
   requireRole('DRIVER'),
+  profileLimiter,
   async (req, res) => {
     if (!req.auth) throw new UnauthorizedError();
     const profile: DriverProfileSummary = await driverService.submitApplication(req.auth.userId);
@@ -84,6 +92,7 @@ driversRouter.patch(
   '/drivers/me/availability',
   requireAuth,
   requireRole('DRIVER'),
+  profileLimiter,
   validateBody(updateAvailabilitySchema),
   async (req, res) => {
     if (!req.auth) throw new UnauthorizedError();

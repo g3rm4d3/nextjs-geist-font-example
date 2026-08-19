@@ -9,7 +9,13 @@ import {
 } from '@rideshare/validation';
 import { Router, type Request } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { loginLimiter, passwordResetLimiter, registerLimiter } from '../middleware/rateLimit';
+import {
+  loginLimiter,
+  passwordResetLimiter,
+  profileLimiter,
+  refreshLimiter,
+  registerLimiter,
+} from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
 import { sendSuccess } from '../lib/respond';
 import { UnauthorizedError } from '../lib/errors';
@@ -49,18 +55,28 @@ authRouter.post('/auth/login', loginLimiter, validateBody(loginSchema), async (r
   sendSuccess(req, res, result);
 });
 
-authRouter.post('/auth/refresh', validateBody(refreshTokenSchema), async (req, res) => {
-  const result: AuthResponse = await authService.refresh(
-    req.body.refreshToken,
-    requestContext(req),
-  );
-  sendSuccess(req, res, result);
-});
+authRouter.post(
+  '/auth/refresh',
+  refreshLimiter,
+  validateBody(refreshTokenSchema),
+  async (req, res) => {
+    const result: AuthResponse = await authService.refresh(
+      req.body.refreshToken,
+      requestContext(req),
+    );
+    sendSuccess(req, res, result);
+  },
+);
 
-authRouter.post('/auth/logout', validateBody(refreshTokenSchema), async (req, res) => {
-  await authService.logout(req.body.refreshToken);
-  sendSuccess(req, res, { loggedOut: true });
-});
+authRouter.post(
+  '/auth/logout',
+  refreshLimiter,
+  validateBody(refreshTokenSchema),
+  async (req, res) => {
+    await authService.logout(req.body.refreshToken);
+    sendSuccess(req, res, { loggedOut: true });
+  },
+);
 
 authRouter.post(
   '/auth/password-reset/request',
@@ -84,7 +100,7 @@ authRouter.post(
   },
 );
 
-authRouter.get('/auth/me', requireAuth, async (req, res) => {
+authRouter.get('/auth/me', requireAuth, profileLimiter, async (req, res) => {
   if (!req.auth) throw new UnauthorizedError();
   const user = await authService.getMe(req.auth.userId);
   sendSuccess(req, res, user);

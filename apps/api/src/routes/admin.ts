@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { sendSuccess } from '../lib/respond';
 import { toVehicle } from '../lib/vehicleMapper';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { earningsLimiter } from '../middleware/rateLimit';
+import { adminLimiter, earningsLimiter } from '../middleware/rateLimit';
 import { findActiveVehicleForDriver } from '../repositories/driversRepository';
 import { listActiveRides } from '../repositories/ridesRepository';
 import { listUsers } from '../repositories/usersRepository';
@@ -29,6 +29,7 @@ adminRouter.get(
   '/admin/users',
   requireAuth,
   requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
   async (req, res) => {
     const users = await listUsers();
     const summaries: AdminUserSummary[] = users.map((user) => ({
@@ -53,6 +54,7 @@ adminRouter.get(
   '/admin/drivers/locations',
   requireAuth,
   requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
   async (req, res) => {
     const locations: FleetDriverLocation[] = await getFleetLocations();
     sendSuccess(req, res, locations);
@@ -69,6 +71,7 @@ adminRouter.get(
   '/admin/rides/active',
   requireAuth,
   requireRole('ADMIN', 'SUPER_ADMIN'),
+  adminLimiter,
   async (req, res) => {
     const rows = await listActiveRides();
     const rides: AdminActiveRide[] = await Promise.all(

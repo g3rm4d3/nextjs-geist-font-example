@@ -163,6 +163,20 @@ async function driverTransition(
  * no distance to measure, and zero points means recordRouteSampleIfDue
  * never got a chance to run (a very short ride, or GPS pings that never
  * arrived during it). */
+// Phase 20 (security review): "location manipulation" -> "fare
+// manipulation". `ride_location_samples` are entirely self-reported by
+// the driver's own device — nothing here can cryptographically verify a
+// GPS fix — and this sum feeds directly into getFareForActualTrip, i.e.
+// straight into what the passenger is charged and what the driver's own
+// earnings ledger records. A driver has a direct financial incentive to
+// inflate it. This is a sanity bound, not fraud detection: it caps the
+// GPS-derived distance at a generous multiple of the pre-trip estimate
+// (real detours/traffic reroutes can legitimately run over) rather than
+// trusting an unbounded sum outright, with an absolute floor so a small
+// or missing estimate never collapses the cap to near-zero.
+const MAX_ACTUAL_DISTANCE_MULTIPLIER = 3;
+const MIN_ACTUAL_DISTANCE_CAP_METERS = 5_000;
+
 async function computeActualDistanceMeters(
   rideId: string,
   estimatedDistanceMeters: number | null,
@@ -176,7 +190,21 @@ async function computeActualDistanceMeters(
   for (let i = 1; i < samples.length; i += 1) {
     totalMeters += haversineDistanceMeters(samples[i - 1]!, samples[i]!);
   }
-  return Math.round(totalMeters);
+  const rounded = Math.round(totalMeters);
+
+  const cap = Math.max(
+    (estimatedDistanceMeters ?? 0) * MAX_ACTUAL_DISTANCE_MULTIPLIER,
+    MIN_ACTUAL_DISTANCE_CAP_METERS,
+  );
+  if (rounded > cap) {
+    logger.warn(
+      { rideId, rounded, estimatedDistanceMeters, cap },
+      'Actual distance from location samples far exceeds the pre-trip estimate — capping to prevent fare inflation from spoofed or erratic location data',
+    );
+    return Math.round(cap);
+  }
+
+  return rounded;
 }
 
 export async function markEnRoute(rideId: string, userId: string): Promise<Ride> {

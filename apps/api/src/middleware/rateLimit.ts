@@ -49,6 +49,21 @@ export const registerLimiter = createLimiter({
   message: 'Too many registration attempts. Try again later.',
 });
 
+// Phase 20 (security review): POST /auth/refresh and /auth/logout both
+// act on a caller-held refresh token with no live access-token session
+// behind them yet — structurally the same "no established identity"
+// shape as login, and had no rate limit at all until this review caught
+// it. IP-keyed (express-rate-limit's default), same reasoning as
+// loginLimiter — there is no req.auth to key on at this point. Generous
+// enough for a legitimate client's normal refresh cadence (roughly once
+// per access-token TTL, well under this ceiling even across several
+// devices sharing an IP) while still bounding a scripted flood.
+export const refreshLimiter = createLimiter({
+  windowMs: 15 * MINUTE_MS,
+  max: 30,
+  message: 'Too many session requests. Try again in a moment.',
+});
+
 export const passwordResetLimiter = createLimiter({
   windowMs: HOUR_MS,
   max: 10,
@@ -230,5 +245,23 @@ export const supportLimiter = createLimiter({
   windowMs: MINUTE_MS,
   max: 20,
   message: 'Too many support requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});
+
+// Phase 20 (security review): a passenger's or driver's own profile
+// read/write endpoints — GET /auth/me, GET /drivers/me(/profile), PUT
+// /drivers/me/vehicle, POST /drivers/me/submit-application, PATCH
+// /drivers/me/availability, GET /passengers/me. These are among the
+// oldest routes in the app (Phase 2/3/5, before this rate-limiting
+// module existed) and had never been given a limiter at all — caught by
+// this review, not by any of the limiters above. Per-user, same
+// reasoning as every limiter above that sits behind requireAuth;
+// generous enough for legitimate use (a driver toggling availability
+// repeatedly, a client re-fetching its own profile) while still bounding
+// a scripted flood against these write-capable endpoints.
+export const profileLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 30,
+  message: 'Too many profile requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
