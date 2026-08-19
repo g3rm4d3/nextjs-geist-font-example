@@ -22,6 +22,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Support: undefined;
   Settings: undefined;
+  Notifications: undefined;
 };
 
 declare global {

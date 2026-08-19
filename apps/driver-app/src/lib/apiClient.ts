@@ -1,5 +1,6 @@
 import type {
   ApiResponse,
+  AppNotification,
   AuthResponse,
   AuthUser,
   DriverDocument,
@@ -17,6 +18,7 @@ import type {
   DriverLocationPingInput,
   LoginInput,
   RegisterDriverInput,
+  RegisterPushTokenInput,
   SubmitRatingInput,
   UpdateAvailabilityInput,
   UploadDocumentInput,
@@ -214,4 +216,42 @@ export function uploadDocument(
 
 export function getOwnDocuments(accessToken: string): Promise<DriverDocument[]> {
   return request<DriverDocument[]>('/drivers/me/documents', { method: 'GET', accessToken });
+}
+
+/** Section 16: a driver's own in-app notification list, most recent
+ * first, plus an unread badge count. See NotificationsScreen. */
+export interface NotificationListResult {
+  notifications: AppNotification[];
+  unreadCount: number;
+}
+
+export function getNotifications(accessToken: string): Promise<NotificationListResult> {
+  return request<NotificationListResult>('/notifications', { method: 'GET', accessToken });
+}
+
+export function markNotificationRead(
+  accessToken: string,
+  notificationId: string,
+): Promise<AppNotification> {
+  return request<AppNotification>(`/notifications/${notificationId}/read`, { accessToken });
+}
+
+export function markAllNotificationsRead(accessToken: string): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>('/notifications/read-all', { accessToken });
+}
+
+/** Best-effort device registration — see lib/pushNotifications.ts for
+ * why a null/failed token never reaches this call at all. */
+export function registerPushToken(
+  accessToken: string,
+  input: RegisterPushTokenInput,
+): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>('/notifications/push-token', { body: input, accessToken });
+}
+
+export function unregisterPushToken(accessToken: string, token: string): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(`/notifications/push-token?token=${encodeURIComponent(token)}`, {
+    method: 'DELETE',
+    accessToken,
+  });
 }

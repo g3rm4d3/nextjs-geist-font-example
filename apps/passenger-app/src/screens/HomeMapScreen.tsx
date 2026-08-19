@@ -115,6 +115,14 @@ export function HomeMapScreen({ navigation }: Props) {
             {destination ? destination.label : 'Where to?'}
           </Text>
         </Pressable>
+
+        <Pressable
+          style={styles.notificationsButton}
+          onPress={() => navigation.navigate('Notifications')}
+          testID="notifications-button"
+        >
+          <Text style={styles.notificationsButtonText}>🔔</Text>
+        </Pressable>
       </View>
 
       {permissionState === 'denied' && (
@@ -159,6 +167,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   profileButtonText: { fontSize: 18 },
+  notificationsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1e293b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  notificationsButtonText: { fontSize: 18 },
   destinationBar: {
     flex: 1,
     backgroundColor: '#f8fafc',

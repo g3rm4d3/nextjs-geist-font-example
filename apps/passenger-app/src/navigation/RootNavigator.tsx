@@ -1,11 +1,13 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { PushTokenRegistrar } from '../components/PushTokenRegistrar';
 import { useAuth } from '../context/AuthContext';
 import { RideDraftProvider } from '../context/RideDraftContext';
 import { AuthScreen } from '../screens/AuthScreen';
 import { DestinationSearchScreen } from '../screens/DestinationSearchScreen';
 import { DriverAssignedScreen } from '../screens/DriverAssignedScreen';
 import { HomeMapScreen } from '../screens/HomeMapScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PaymentMethodsScreen } from '../screens/PaymentMethodsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RequestRideScreen } from '../screens/RequestRideScreen';
@@ -39,7 +41,7 @@ const SCREEN_OPTIONS = {
  * without a valid session.
  */
 export function RootNavigator() {
-  const { status } = useAuth();
+  const { status, accessToken } = useAuth();
 
   if (status === 'loading') {
     return <SplashScreen />;
@@ -47,6 +49,7 @@ export function RootNavigator() {
 
   return (
     <RideDraftProvider>
+      {status === 'signedIn' && accessToken && <PushTokenRegistrar accessToken={accessToken} />}
       <NavigationContainer>
         <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
           {status === 'signedOut' ? (
@@ -127,6 +130,11 @@ export function RootNavigator() {
                 name="Settings"
                 component={SettingsScreen}
                 options={{ title: 'Settings' }}
+              />
+              <Stack.Screen
+                name="Notifications"
+                component={NotificationsScreen}
+                options={{ title: 'Notifications' }}
               />
             </>
           )}

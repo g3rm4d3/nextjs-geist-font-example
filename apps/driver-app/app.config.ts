@@ -59,6 +59,14 @@ const config: ExpoConfig = {
           'Rideshare Driver uses your camera to photograph a document (license, registration, insurance, profile photo).',
       },
     ],
+    [
+      'expo-notifications',
+      {
+        // Phase 16: ride offer/status/payout notifications. No custom
+        // sound/icon configured — the default Expo notification
+        // presentation is enough for Stage 1 (docs/notifications.md).
+      },
+    ],
   ],
   extra: {
     stage: 'stage-1-development',

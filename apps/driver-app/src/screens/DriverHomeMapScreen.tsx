@@ -222,13 +222,22 @@ export function DriverHomeMapScreen({ navigation }: Props) {
       </MapView>
 
       <View style={styles.topBar}>
-        <Pressable
-          style={styles.profileButton}
-          onPress={() => navigation.navigate('Profile')}
-          testID="profile-button"
-        >
-          <Text style={styles.profileButtonText}>👤</Text>
-        </Pressable>
+        <View style={styles.topBarLeft}>
+          <Pressable
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+            testID="profile-button"
+          >
+            <Text style={styles.profileButtonText}>👤</Text>
+          </Pressable>
+          <Pressable
+            style={styles.notificationsButton}
+            onPress={() => navigation.navigate('Notifications')}
+            testID="notifications-button"
+          >
+            <Text style={styles.notificationsButtonText}>🔔</Text>
+          </Pressable>
+        </View>
         {profile && (
           <View style={styles.statusChip}>
             <Text style={styles.statusChipText}>{profile.availabilityStatus}</Text>
@@ -291,6 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  topBarLeft: { flexDirection: 'row', alignItems: 'center' },
   profileButton: {
     width: 44,
     height: 44,
@@ -300,6 +310,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileButtonText: { fontSize: 18 },
+  notificationsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#292524',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  notificationsButtonText: { fontSize: 18 },
   statusChip: {
     backgroundColor: '#292524',
     borderRadius: 999,

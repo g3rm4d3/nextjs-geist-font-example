@@ -21,6 +21,7 @@ export type RootStackParamList = {
   PaymentMethods: undefined;
   Support: undefined;
   Settings: undefined;
+  Notifications: undefined;
 };
 
 declare global {

@@ -46,6 +46,14 @@ const config: ExpoConfig = {
           'Rideshare Passenger uses your location to set your pickup point and show nearby rides.',
       },
     ],
+    [
+      'expo-notifications',
+      {
+        // Phase 16: ride status/payment/support push notifications.
+        // No custom sound/icon configured — the default Expo notification
+        // presentation is enough for Stage 1 (docs/notifications.md).
+      },
+    ],
   ],
   extra: {
     stage: 'stage-1-development',

@@ -1,5 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { PushTokenRegistrar } from '../components/PushTokenRegistrar';
 import { ActiveRideProvider } from '../context/ActiveRideContext';
 import { useAuth } from '../context/AuthContext';
 import { DriverProfileProvider } from '../context/DriverProfileContext';
@@ -11,6 +12,7 @@ import { DriverHomeMapScreen } from '../screens/DriverHomeMapScreen';
 import { EarningsScreen } from '../screens/EarningsScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { IncomingRequestScreen } from '../screens/IncomingRequestScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PickupNavigationScreen } from '../screens/PickupNavigationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -39,7 +41,7 @@ const SCREEN_OPTIONS = {
  * fetches/holds anything before a driver session exists.
  */
 export function RootNavigator() {
-  const { status } = useAuth();
+  const { status, accessToken } = useAuth();
 
   if (status === 'loading') {
     return <SplashScreen />;
@@ -48,6 +50,7 @@ export function RootNavigator() {
   return (
     <DriverProfileProvider>
       <ActiveRideProvider>
+        {status === 'signedIn' && accessToken && <PushTokenRegistrar accessToken={accessToken} />}
         <NavigationContainer>
           <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
             {status === 'signedOut' ? (
@@ -124,6 +127,11 @@ export function RootNavigator() {
                   name="Settings"
                   component={SettingsScreen}
                   options={{ title: 'Settings' }}
+                />
+                <Stack.Screen
+                  name="Notifications"
+                  component={NotificationsScreen}
+                  options={{ title: 'Notifications' }}
                 />
               </>
             )}
