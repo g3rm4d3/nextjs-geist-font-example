@@ -4,6 +4,7 @@ import type { Payment } from '@rideshare/types';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { paymentProvider, stripeWebhookSecret } from '../lib/paymentProvider';
+import { notifyPaymentStatus } from './notificationService';
 import {
   createPaymentRecord,
   findLatestPaymentRecordForRide,
@@ -21,6 +22,28 @@ import {
   findPassengerProfileByUserId,
   setPassengerDefaultTestPaymentMethod,
 } from '../repositories/usersRepository';
+
+/**
+ * Phase 16's "payment status" event, fired from every path that can
+ * settle a payment_records row's outcome: the optimistic
+ * confirmPaymentIntent path (runPaymentAttempt), the webhook's
+ * compare-and-swap (handleStripeWebhookEvent), and a refund
+ * (refundPayment). Best-effort by design — same "must not fail the
+ * primary action" precedent as chargeRideFare's own callers — so this
+ * never throws; a notification failure is logged, not surfaced.
+ */
+async function notifyPaymentOutcome(record: PaymentRecordRow): Promise<void> {
+  if (record.status === 'PENDING') return;
+  try {
+    const ride = await findRideById(record.rideId);
+    if (!ride) return;
+    const passenger = await findPassengerProfileById(ride.passengerId);
+    if (!passenger) return;
+    await notifyPaymentStatus(passenger.userId, record.rideId, record.status);
+  } catch (error) {
+    logger.warn({ err: error, paymentRecordId: record.id }, 'Failed to send payment status notification');
+  }
+}
 
 function toPayment(row: PaymentRecordRow): Payment {
   return {
@@ -79,10 +102,15 @@ async function runPaymentAttempt(
     toStatus: confirmation.status === 'succeeded' ? 'SUCCEEDED' : 'FAILED',
     failureReason: confirmation.failureReason ?? null,
   });
-  if (updated) return updated;
+  if (updated) {
+    await notifyPaymentOutcome(updated);
+    return updated;
+  }
 
   // Lost the compare-and-swap to a racing webhook delivery for the same
   // intent — that outcome is authoritative now; re-read the current row.
+  // Whichever of the two paths actually won already sent its own
+  // notification for that outcome, so this one is not repeated here.
   const current = await findPaymentRecordById(record.id);
   if (!current) throw new Error(`Payment record ${record.id} disappeared mid-attempt`);
   return current;
@@ -231,11 +259,18 @@ export async function handleStripeWebhookEvent(
     return;
   }
 
-  await markPaymentOutcomeByProviderPaymentIntentId({
+  const updated = await markPaymentOutcomeByProviderPaymentIntentId({
     providerPaymentIntentId: event.providerPaymentIntentId,
     toStatus: event.type === 'payment_intent.succeeded' ? 'SUCCEEDED' : 'FAILED',
     failureReason: event.failureReason ?? null,
   });
+  // undefined means the optimistic runPaymentAttempt path already won
+  // this compare-and-swap and sent its own notification — see that
+  // function's own comment for why this is redundant by design, not a
+  // bug.
+  if (updated) {
+    await notifyPaymentOutcome(updated);
+  }
 }
 
 /**
@@ -262,5 +297,6 @@ export async function refundPayment(paymentRecordId: string, reason?: string): P
   if (!updated) {
     throw new ConflictError('Payment is no longer in a refundable state');
   }
+  await notifyPaymentOutcome(updated);
   return toPayment(updated);
 }

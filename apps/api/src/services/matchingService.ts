@@ -23,8 +23,13 @@ import {
   expireOfferAtomic,
 } from '../repositories/matchingRepository';
 import { findRideById } from '../repositories/ridesRepository';
-import { findDriverProfileByUserId } from '../repositories/usersRepository';
+import {
+  findDriverProfileById,
+  findDriverProfileByUserId,
+  findPassengerProfileById,
+} from '../repositories/usersRepository';
 import { STALE_THRESHOLD_MS } from './locationService';
+import { notifyRideAccepted } from './notificationService';
 
 /**
  * Every exported function below that a driver calls on themselves takes
@@ -305,6 +310,25 @@ export async function handleAccept(rideRequestId: string, userId: string): Promi
     { rideId: result.ride.id, driverId, rideRequestId },
     'Matching: driver accepted ride offer',
   );
+
+  // Phase 16's "ride accepted" event, targeting the passenger — the
+  // driver already knows the outcome of their own accept action, so
+  // only the passenger side needs telling. Best-effort, same precedent
+  // as rideService.requestRide's startMatching call.
+  try {
+    const [passenger, driver] = await Promise.all([
+      findPassengerProfileById(result.ride.passengerId),
+      findDriverProfileById(driverId),
+    ]);
+    if (passenger && driver) {
+      await notifyRideAccepted(passenger.userId, result.ride.id, driver.firstName);
+    }
+  } catch (notificationError) {
+    logger.error(
+      { err: notificationError, rideId: result.ride.id },
+      'Failed to send ride-accepted notification',
+    );
+  }
 
   return toRide(result.ride);
 }

@@ -1,11 +1,15 @@
 import type { DocumentType, DriverDocument, UploadDocumentInput } from '@rideshare/types';
+import { logger } from '../lib/logger';
 import { storageProvider } from '../lib/storageProvider';
 import {
   createDocument,
   findDocumentsByDriver,
+  findDocumentsNeedingExpirationWarning,
+  markExpirationNotified,
   type DriverDocumentRow,
 } from '../repositories/documentsRepository';
 import { findDriverProfileByUserId } from '../repositories/usersRepository';
+import { notifyDocumentExpiring } from './notificationService';
 
 function toDriverDocument(row: DriverDocumentRow): DriverDocument {
   return {
@@ -69,4 +73,37 @@ export async function listOwnDocuments(userId: string): Promise<DriverDocument[]
   const driverId = await requireDriverProfileId(userId);
   const rows = await findDocumentsByDriver(driverId);
   return rows.map(toDriverDocument);
+}
+
+/**
+ * Phase 16's document-expiration sweep. Called on a timer (src/index.ts,
+ * the same shape as matchingService.sweepExpiredOffers) — never from
+ * createApp() itself, so test runs stay deterministic. For every
+ * APPROVED document newly within its expiration warning window, sends a
+ * "document expiring soon" notification and stamps
+ * expirationNotifiedAt — but only *after* a successful notify, so a
+ * failed send is retried by the next tick rather than silently stamped
+ * away.
+ */
+export async function sweepExpiringDocuments(): Promise<number> {
+  const candidates = await findDocumentsNeedingExpirationWarning();
+
+  let notifiedCount = 0;
+  for (const document of candidates) {
+    try {
+      await notifyDocumentExpiring(document.driverUserId, document.id);
+    } catch (error) {
+      logger.error(
+        { err: error, documentId: document.id },
+        'Failed to send document-expiring notification',
+      );
+      continue;
+    }
+
+    if (await markExpirationNotified(document.id)) {
+      notifiedCount += 1;
+    }
+  }
+
+  return notifiedCount;
 }

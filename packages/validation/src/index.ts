@@ -3,6 +3,7 @@ export * from './auth';
 export * from './document';
 export * from './driver';
 export * from './location';
+export * from './notification';
 export * from './payments';
 export * from './ratings';
 export * from './ride';

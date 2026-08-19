@@ -6,6 +6,7 @@ export * from './driver';
 export * from './earnings';
 export * from './health';
 export * from './location';
+export * from './notification';
 export * from './payment';
 export * from './pricing';
 export * from './rating';

@@ -13,6 +13,7 @@ export * from './ratings';
 export * from './payments';
 export * from './earnings';
 export * from './notifications';
+export * from './pushTokens';
 export * from './support';
 export * from './promoCodes';
 export * from './auditLogs';

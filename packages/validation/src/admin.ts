@@ -70,3 +70,13 @@ export const upsertSystemSettingSchema = z.object({
   description: z.string().trim().min(1).max(500).optional(),
 });
 export type UpsertSystemSettingInput = z.infer<typeof upsertSystemSettingSchema>;
+
+/** POST /admin/support/tickets/:id/messages — an admin's reply to a
+ * support ticket. Section 16's "support update" notification fires only
+ * for a non-internal-note reply (an internal note is never visible to
+ * the ticket's owner, so there's nothing to notify them about). */
+export const replySupportTicketSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
+  isInternalNote: z.boolean().optional(),
+});
+export type ReplySupportTicketInput = z.infer<typeof replySupportTicketSchema>;

@@ -61,6 +61,24 @@ const envSchema = z.object({
   // MODE key — createStripePaymentProvider enforces that itself.
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Phase 16 — Notification System. Unset (or anything other than the
+  // literal string "true") means "use the MOCK NotificationProvider"
+  // (see lib/notificationProvider.ts), the default in every environment
+  // here: Expo's push endpoint needs no credential to attempt a send,
+  // but this environment has no real device's Expo push token to send
+  // to or verify delivery against (see docs/notifications.md). Uses an
+  // explicit transform rather than z.coerce.boolean(), which would treat
+  // the *string* "false" as true (any non-empty string is truthy).
+  EXPO_PUSH_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === 'true'),
+
+  // How often the document-expiration sweep (src/index.ts) checks for
+  // APPROVED documents newly within their expiration warning window —
+  // same "background sweep timer" shape as MATCHING_SWEEP_INTERVAL_MS.
+  DOCUMENT_EXPIRATION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(3_600_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

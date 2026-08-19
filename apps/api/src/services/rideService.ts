@@ -10,6 +10,7 @@ import {
   findRideByIdempotencyKey,
 } from '../repositories/ridesRepository';
 import { startMatching } from './matchingService';
+import { notifyRideRequested } from './notificationService';
 import { getFareEstimateWithRoute } from './pricingService';
 
 export interface RequestRideResult {
@@ -101,6 +102,18 @@ export async function requestRide(
       logger.error(
         { err: matchingError, rideId: created.id },
         'Matching failed to start for new ride',
+      );
+    }
+
+    // Phase 16's "ride requested" event. Best-effort, same precedent as
+    // startMatching just above — the ride exists and is SEARCHING_DRIVER
+    // either way.
+    try {
+      await notifyRideRequested(userId, created.id);
+    } catch (notificationError) {
+      logger.error(
+        { err: notificationError, rideId: created.id },
+        'Failed to send ride-requested notification',
       );
     }
 

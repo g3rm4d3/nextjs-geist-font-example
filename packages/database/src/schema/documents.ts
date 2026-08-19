@@ -21,6 +21,13 @@ export const driverDocuments = pgTable(
     reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     rejectionReason: text('rejection_reason'),
+    // Phase 16: set the first time the "document expiring soon" sweep
+    // notifies this document's driver, so a repeat sweep tick doesn't
+    // re-notify for the same expiration. A fresh upload (a new row,
+    // never a mutation of this one — see documentsRepository.createDocument)
+    // always starts null, so a replacement document gets its own warning
+    // cycle rather than inheriting the old one's.
+    expirationNotifiedAt: timestamp('expiration_notified_at', { withTimezone: true }),
     ...timestamps,
   },
   (table) => [

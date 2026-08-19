@@ -207,3 +207,16 @@ export const adminLimiter = createLimiter({
   message: 'Too many admin requests. Try again in a moment.',
   keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
 });
+
+// Phase 16: a passenger/driver's own notification list/read/push-token
+// endpoints. Generous enough for a client that polls its notification
+// list periodically (there is no realtime push delivery mechanism to
+// the client beyond the notification itself — see docs/notifications.md)
+// plus the occasional mark-read/register-token call. Per-user, same
+// reasoning as every limiter above that sits behind requireAuth.
+export const notificationLimiter = createLimiter({
+  windowMs: MINUTE_MS,
+  max: 60,
+  message: 'Too many notification requests. Try again in a moment.',
+  keyGenerator: (req) => req.auth?.userId ?? ipKeyGenerator(req.ip ?? 'unknown'),
+});

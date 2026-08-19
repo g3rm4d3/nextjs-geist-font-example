@@ -1,5 +1,5 @@
 import { schema } from '@rideshare/database';
-import { and, count, desc, eq, inArray, lte } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, lte } from 'drizzle-orm';
 import { db } from '../db/client';
 
 export type DriverDocumentRow = typeof schema.driverDocuments.$inferSelect;
@@ -97,6 +97,7 @@ export async function listDocuments(filter: ListDocumentsFilter = {}): Promise<D
       reviewedBy: schema.driverDocuments.reviewedBy,
       reviewedAt: schema.driverDocuments.reviewedAt,
       rejectionReason: schema.driverDocuments.rejectionReason,
+      expirationNotifiedAt: schema.driverDocuments.expirationNotifiedAt,
       createdAt: schema.driverDocuments.createdAt,
       updatedAt: schema.driverDocuments.updatedAt,
       driverFirstName: schema.driverProfiles.firstName,
@@ -203,4 +204,66 @@ export async function requestReplacement(
     )
     .returning();
   return updated;
+}
+
+export interface DocumentExpirationWarningRow extends DriverDocumentRow {
+  driverUserId: string;
+}
+
+/**
+ * Phase 16's expiration sweep candidate set — the same APPROVED +
+ * expiring-within-window definition as countExpiringDocuments, further
+ * narrowed to documents this sweep hasn't already notified about
+ * (expirationNotifiedAt IS NULL). A fresh replacement upload always
+ * starts a new row with its own null expirationNotifiedAt (see
+ * createDocument), so a replaced document gets its own warning cycle
+ * rather than inheriting the old one's.
+ */
+export async function findDocumentsNeedingExpirationWarning(
+  withinDays: number = EXPIRATION_WARNING_WINDOW_DAYS,
+): Promise<DocumentExpirationWarningRow[]> {
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() + withinDays);
+
+  return db
+    .select({
+      id: schema.driverDocuments.id,
+      driverId: schema.driverDocuments.driverId,
+      documentType: schema.driverDocuments.documentType,
+      storageKey: schema.driverDocuments.storageKey,
+      uploadedAt: schema.driverDocuments.uploadedAt,
+      expiresAt: schema.driverDocuments.expiresAt,
+      reviewStatus: schema.driverDocuments.reviewStatus,
+      reviewedBy: schema.driverDocuments.reviewedBy,
+      reviewedAt: schema.driverDocuments.reviewedAt,
+      rejectionReason: schema.driverDocuments.rejectionReason,
+      expirationNotifiedAt: schema.driverDocuments.expirationNotifiedAt,
+      createdAt: schema.driverDocuments.createdAt,
+      updatedAt: schema.driverDocuments.updatedAt,
+      driverUserId: schema.driverProfiles.userId,
+    })
+    .from(schema.driverDocuments)
+    .innerJoin(schema.driverProfiles, eq(schema.driverDocuments.driverId, schema.driverProfiles.id))
+    .where(
+      and(
+        eq(schema.driverDocuments.reviewStatus, 'APPROVED'),
+        lte(schema.driverDocuments.expiresAt, threshold),
+        isNull(schema.driverDocuments.expirationNotifiedAt),
+      ),
+    );
+}
+
+/** Compare-and-swap stamp, conditional on still being NULL — a sweep
+ * tick that raced a concurrent one (or somehow ran twice) can never
+ * double-stamp, the same guarantee every other state transition in this
+ * codebase gets from a conditional UPDATE. */
+export async function markExpirationNotified(documentId: string): Promise<boolean> {
+  const updated = await db
+    .update(schema.driverDocuments)
+    .set({ expirationNotifiedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(eq(schema.driverDocuments.id, documentId), isNull(schema.driverDocuments.expirationNotifiedAt)),
+    )
+    .returning({ id: schema.driverDocuments.id });
+  return updated.length > 0;
 }

@@ -12,9 +12,16 @@ import {
 } from '../repositories/ridesRepository';
 import {
   findDriverProfileByUserId,
+  findPassengerProfileById,
   findPassengerProfileByUserId,
 } from '../repositories/usersRepository';
 import { recordEarningsForCompletedRide } from './earningsService';
+import {
+  notifyDriverApproaching,
+  notifyDriverArrived,
+  notifyRideCompleted,
+  notifyRideStarted,
+} from './notificationService';
 import { chargeRideFare } from './paymentService';
 import { getFareForActualTrip } from './pricingService';
 
@@ -68,12 +75,51 @@ const FORWARD_FROM_STATUS: Record<
  * another driver's ride" means concretely, at every one of these
  * endpoints, not just the atomic accept from Phase 8.
  */
+/** Phase 16 events fired off a ride status transition — three of
+ * driverTransition's four callers get one (markPassengerOnboard passes
+ * none, see markPassengerOnboard's own comment); completeRide has its
+ * own bespoke body and calls this directly rather than through
+ * driverTransition, but shares the same notification map and best-
+ * effort shape. */
+type DriverTransitionNotification = 'approaching' | 'arrived' | 'started' | 'completed';
+
+const NOTIFY_BY_TRANSITION: Record<DriverTransitionNotification, (userId: string, rideId: string) => Promise<unknown>> = {
+  approaching: notifyDriverApproaching,
+  arrived: notifyDriverArrived,
+  started: notifyRideStarted,
+  completed: notifyRideCompleted,
+};
+
+/**
+ * Best-effort, same "must not fail the primary action" precedent as
+ * rideService.requestRide's startMatching call. `passengerId` is the raw
+ * pre-mapped row's field (never re-derived from `toRide`'s API-facing
+ * shape) — this always runs against the just-updated database row.
+ */
+async function notifyForDriverTransition(
+  passengerId: string,
+  rideId: string,
+  notification: DriverTransitionNotification,
+): Promise<void> {
+  try {
+    const passenger = await findPassengerProfileById(passengerId);
+    if (!passenger) return;
+    await NOTIFY_BY_TRANSITION[notification](passenger.userId, rideId);
+  } catch (notificationError) {
+    logger.error(
+      { err: notificationError, rideId, notification },
+      'Failed to send ride lifecycle notification',
+    );
+  }
+}
+
 async function driverTransition(
   rideId: string,
   userId: string,
   fromStatus: RideStatus,
   toStatus: RideStatus,
   extraFields?: RideLifecycleExtraFields,
+  notification?: DriverTransitionNotification,
 ): Promise<Ride> {
   const driverId = await requireDriverId(userId);
   const ride = await findRideById(rideId);
@@ -99,6 +145,10 @@ async function driverTransition(
     // passenger cancelled in the same instant) — the pre-read's message
     // no longer applies; this is the authoritative outcome.
     throw new ConflictError('This ride is no longer in a state that allows this action');
+  }
+
+  if (notification) {
+    await notifyForDriverTransition(updated.passengerId, rideId, notification);
   }
 
   return toRide(updated);
@@ -127,13 +177,30 @@ async function computeActualDistanceMeters(
 }
 
 export async function markEnRoute(rideId: string, userId: string): Promise<Ride> {
-  return driverTransition(rideId, userId, FORWARD_FROM_STATUS.markEnRoute, 'DRIVER_EN_ROUTE');
+  return driverTransition(
+    rideId,
+    userId,
+    FORWARD_FROM_STATUS.markEnRoute,
+    'DRIVER_EN_ROUTE',
+    undefined,
+    'approaching',
+  );
 }
 
 export async function markArrived(rideId: string, userId: string): Promise<Ride> {
-  return driverTransition(rideId, userId, FORWARD_FROM_STATUS.markArrived, 'DRIVER_ARRIVED');
+  return driverTransition(
+    rideId,
+    userId,
+    FORWARD_FROM_STATUS.markArrived,
+    'DRIVER_ARRIVED',
+    undefined,
+    'arrived',
+  );
 }
 
+/** No Phase 16 event: the spec's canonical event list has no
+ * "passenger onboard" notification, and the passenger who just got in
+ * the car doesn't need to be told they did. */
 export async function markPassengerOnboard(rideId: string, userId: string): Promise<Ride> {
   return driverTransition(
     rideId,
@@ -144,9 +211,14 @@ export async function markPassengerOnboard(rideId: string, userId: string): Prom
 }
 
 export async function startTrip(rideId: string, userId: string): Promise<Ride> {
-  return driverTransition(rideId, userId, FORWARD_FROM_STATUS.startTrip, 'IN_PROGRESS', {
-    startedAt: new Date(),
-  });
+  return driverTransition(
+    rideId,
+    userId,
+    FORWARD_FROM_STATUS.startTrip,
+    'IN_PROGRESS',
+    { startedAt: new Date() },
+    'started',
+  );
 }
 
 /**
@@ -233,6 +305,12 @@ export async function completeRide(rideId: string, userId: string): Promise<Ride
   } catch (earningsError) {
     logger.error({ err: earningsError, rideId }, 'Failed to record earnings for completed ride');
   }
+
+  // Phase 16's "ride completed" event. completeRide doesn't go through
+  // driverTransition (it has its own bespoke body above), so it fires
+  // its own notification directly rather than through
+  // notifyForDriverTransition — same best-effort shape regardless.
+  await notifyForDriverTransition(updated.passengerId, rideId, 'completed');
 
   return toRide(updated);
 }

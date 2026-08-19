@@ -118,3 +118,30 @@ export async function listMessagesForTicket(ticketId: string): Promise<SupportMe
     authorLastName: row.passengerLastName ?? row.driverLastName,
   }));
 }
+
+export interface CreateMessageInput {
+  ticketId: string;
+  authorUserId: string | null;
+  isInternalNote: boolean;
+  body: string;
+}
+
+/**
+ * Phase 16's minimal admin-reply endpoint — the only writer of
+ * support_messages in Stage 1 (Section 18's full passenger/driver-facing
+ * ticket lifecycle, including a passenger opening a ticket in the first
+ * place, is explicitly out of scope here; see adminSupportService.replyToTicket).
+ */
+export async function createMessage(input: CreateMessageInput): Promise<SupportMessageRow> {
+  const [row] = await db
+    .insert(schema.supportMessages)
+    .values({
+      ticketId: input.ticketId,
+      authorUserId: input.authorUserId,
+      isInternalNote: input.isInternalNote,
+      body: input.body,
+    })
+    .returning();
+  if (!row) throw new Error('Failed to insert support message');
+  return row;
+}

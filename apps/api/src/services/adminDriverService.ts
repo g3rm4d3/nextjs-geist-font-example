@@ -13,8 +13,10 @@ import {
   type DriverAdminRow,
 } from '../repositories/driversRepository';
 import { findDocumentsByDriver } from '../repositories/documentsRepository';
+import { logger } from '../lib/logger';
 import { getLatestBackgroundCheck } from './adminBackgroundCheckService';
 import { recordAuditLog } from './auditService';
+import { notifyDriverApproved, notifyDriverRejected } from './notificationService';
 
 type DriverOnboardingStatus = AdminDriverSummary['onboardingStatus'];
 
@@ -117,6 +119,16 @@ export async function approveDriver(driverId: string, actor: AuditActorContext):
   await auditDriverAction(actor, 'driver.approve', driverId, { onboardingStatus: 'PENDING_REVIEW' }, {
     onboardingStatus: 'APPROVED',
   });
+
+  // Phase 16's "driver approval" event. Best-effort, same precedent as
+  // rideService.requestRide's startMatching call — the approval itself
+  // already succeeded above regardless of notification outcome.
+  try {
+    await notifyDriverApproved(updated.userId);
+  } catch (notificationError) {
+    logger.error({ err: notificationError, driverId }, 'Failed to send driver-approved notification');
+  }
+
   const row = await findDriverAdminRowById(driverId);
   if (!row) throw new Error(`Driver ${driverId} disappeared immediately after being approved`);
   return toSummary(row);
@@ -143,6 +155,14 @@ export async function rejectDriver(
     { onboardingStatus: 'PENDING_REVIEW' },
     { onboardingStatus: 'REJECTED', reason },
   );
+
+  // Phase 16's "driver rejection" event, same best-effort shape as approve.
+  try {
+    await notifyDriverRejected(updated.userId, reason);
+  } catch (notificationError) {
+    logger.error({ err: notificationError, driverId }, 'Failed to send driver-rejected notification');
+  }
+
   const row = await findDriverAdminRowById(driverId);
   if (!row) throw new Error(`Driver ${driverId} disappeared immediately after being rejected`);
   return toSummary(row);

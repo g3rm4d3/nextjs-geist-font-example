@@ -16,7 +16,7 @@
     "dev:admin": "npm run dev --workspace=apps/admin-app",
     "dev:passenger": "npm run start --workspace=apps/passenger-app",
     "dev:driver": "npm run start --workspace=apps/driver-app",
-    "build:packages": "npm run build --workspace=packages/types && npm run build --workspace=packages/logging && npm run build --workspace=packages/auth && npm run build --workspace=packages/validation && npm run build --workspace=packages/maps && npm run build --workspace=packages/pricing && npm run build --workspace=packages/matching && npm run build --workspace=packages/payments && npm run build --workspace=packages/storage && npm run build --workspace=packages/screening && npm run build --workspace=packages/database",
+    "build:packages": "npm run build --workspace=packages/types && npm run build --workspace=packages/logging && npm run build --workspace=packages/auth && npm run build --workspace=packages/validation && npm run build --workspace=packages/maps && npm run build --workspace=packages/pricing && npm run build --workspace=packages/matching && npm run build --workspace=packages/payments && npm run build --workspace=packages/storage && npm run build --workspace=packages/screening && npm run build --workspace=packages/notifications && npm run build --workspace=packages/database",
     "build": "npm run build:packages && npm run build --workspace=apps/api && npm run build --workspace=apps/admin-app",
     "build:api": "npm run build --workspace=apps/api",
     "build:admin": "npm run build --workspace=apps/admin-app",

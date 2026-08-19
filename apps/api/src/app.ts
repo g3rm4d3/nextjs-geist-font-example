@@ -27,6 +27,7 @@ import { driverOffersRouter } from './routes/driverOffers';
 import { driverRidesRouter } from './routes/driverRides';
 import { driversRouter } from './routes/drivers';
 import { healthRouter } from './routes/health';
+import { notificationsRouter } from './routes/notifications';
 import { passengersRouter } from './routes/passengers';
 import { paymentsRouter } from './routes/payments';
 import { pricingRouter } from './routes/pricing';
@@ -98,6 +99,7 @@ export function createApp(): Express {
   app.use(pricingRouter);
   app.use(ridesRouter);
   app.use(paymentsRouter);
+  app.use(notificationsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
