@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { schema } from '@rideshare/database';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
@@ -428,11 +428,15 @@ describe('Matching engine (Phase 8)', () => {
       // the spec describes, exercising the same atomic accept transaction
       // that would otherwise be reached one decline/timeout at a time.
       const [existingOffer] = await openOffersForRide(ride.id);
+      // createOffer can only return undefined (Phase 21) when the driver
+      // already holds a different open offer elsewhere — driverA/driverB
+      // are freshly registered just above and hold none, so both calls
+      // are guaranteed to succeed here; the `!` reflects that guarantee.
       const requestA =
         existingOffer?.driverId === driverA.driverProfileId
           ? existingOffer
-          : await createOffer(ride.id, driverA.driverProfileId, new Date(Date.now() + 60_000));
-      const requestB = await createOffer(ride.id, driverB.driverProfileId, new Date(Date.now() + 60_000));
+          : (await createOffer(ride.id, driverA.driverProfileId, new Date(Date.now() + 60_000)))!;
+      const requestB = (await createOffer(ride.id, driverB.driverProfileId, new Date(Date.now() + 60_000)))!;
 
       const [responseA, responseB] = await Promise.all([
         request(app)
@@ -521,5 +525,78 @@ describe('Matching engine (Phase 8)', () => {
       },
       60_000,
     );
+  });
+
+  /**
+   * PHASE 21: a distinct concurrency dimension from "several drivers
+   * racing to accept the same offer" above — several *different*
+   * passengers racing to request rides concurrently against a shared,
+   * deliberately-undersized pool of eligible drivers. Each ride request
+   * runs its own independent `findEligibleDrivers` read followed by its
+   * own `createOffer` write (see matchingService.findAndOfferNextCandidate);
+   * nothing coordinates across these concurrent, unrelated requests
+   * beyond the eligibility query's own `notInArray` exclusion of
+   * already-offered drivers. Phase 19's load simulator surfaced exactly
+   * this dynamic under real concurrent load (49/50 requests matched,
+   * the 50th legitimately finding zero eligible candidates at its own
+   * snapshot read — see docs/simulation-results.md) — this test turns
+   * that one-off observation into a permanent, always-run regression
+   * check of the invariant that actually has to hold under this kind of
+   * race: no driver is ever offered two rides at once, and every
+   * request still gets its own, single ride row regardless of how the
+   * matching race resolves.
+   */
+  describe('concurrent ride requests — no double-assignment across independent rides', () => {
+    it('never offers one driver to two different rides at once, even when demand exceeds supply', async () => {
+      const pickup = uniquePickup();
+      const driverCount = 5;
+      const passengerCount = 8; // deliberately more requests than drivers
+
+      const drivers = await Promise.all(
+        Array.from({ length: driverCount }, (_, i) => registerEligibleDriver(pickup, 1 + i * 0.1)),
+      );
+      const passengerTokens = await Promise.all(
+        Array.from({ length: passengerCount }, () => registerPassenger()),
+      );
+
+      const responses = await Promise.all(
+        passengerTokens.map((token) =>
+          request(app).post('/rides').set('Authorization', `Bearer ${token}`).send(rideRequestBody(pickup)),
+        ),
+      );
+
+      // Ride creation itself is unaffected by matching contention —
+      // finding no (or a contended) candidate is a valid outcome
+      // matchingService handles internally, never a failed request.
+      for (const response of responses) {
+        expect(response.status).toBe(201);
+      }
+      const rideIds = responses.map((r) => r.body.data.id as string);
+      expect(new Set(rideIds).size).toBe(passengerCount); // every request got its own, distinct ride row
+
+      const offeredRows = await db
+        .select({ rideId: schema.rideRequests.rideId, driverId: schema.rideRequests.driverId })
+        .from(schema.rideRequests)
+        .where(
+          and(inArray(schema.rideRequests.rideId, rideIds), eq(schema.rideRequests.status, 'OFFERED')),
+        );
+
+      // The actual invariant under test: at most one open offer per
+      // driver, no matter how many of these requests raced each other
+      // for the same driver pool.
+      const offeredDriverIds = offeredRows.map((row) => row.driverId);
+      expect(new Set(offeredDriverIds).size).toBe(offeredDriverIds.length);
+      expect(offeredRows.length).toBeLessThanOrEqual(driverCount);
+      expect(offeredRows.length).toBeGreaterThan(0); // the pool wasn't somehow left entirely unused
+
+      // Every offered driver really is one of this test's own drivers —
+      // no cross-test bleed (uniquePickup's own isolation guarantee,
+      // re-verified here as this test's actual assertion, not just
+      // assumed).
+      const ownDriverIds = new Set(drivers.map((d) => d.driverProfileId));
+      for (const driverId of offeredDriverIds) {
+        expect(ownDriverIds.has(driverId)).toBe(true);
+      }
+    });
   });
 });

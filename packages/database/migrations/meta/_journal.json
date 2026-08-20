@@ -64,6 +64,13 @@
       "when": 1787110318753,
       "tag": "0008_solid_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787184319120,
+      "tag": "0009_steady_omega_flight",
+      "breakpoints": true
     }
   ]
 }

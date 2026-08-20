@@ -133,20 +133,32 @@ async function findAndOfferNextCandidate(rideId: string): Promise<MatchAttemptOu
     return { outcome: 'no_candidates' };
   }
 
-  const [top] = rankCandidates(tier.candidates, Date.now());
-  if (!top) {
-    return { outcome: 'no_candidates' };
+  const ranked = rankCandidates(tier.candidates, Date.now());
+  const expiresAt = new Date(Date.now() + env.MATCHING_OFFER_TIMEOUT_SECONDS * 1000);
+
+  // Try candidates in ranked order; createOffer returning undefined
+  // means *this* candidate lost a race with a different, concurrent,
+  // independent matching attempt (a different ride, offering the same
+  // driver, committed a moment earlier — see createOffer's own comment
+  // and ride_requests_one_open_offer_per_driver_key) — not a reason to
+  // give up the whole attempt when a perfectly good next-best candidate
+  // is already sitting right here in the same ranked list.
+  for (const candidate of ranked) {
+    const offer = await createOffer(rideId, candidate.driverId, expiresAt);
+    if (offer) {
+      logger.info(
+        { rideId, driverId: candidate.driverId, rideRequestId: offer.id, radiusMeters: tier.radiusMeters },
+        'Matching: offered ride to driver',
+      );
+      return { outcome: 'offered', rideRequestId: offer.id, driverId: candidate.driverId };
+    }
+    logger.info(
+      { rideId, driverId: candidate.driverId },
+      'Matching: candidate was claimed by a concurrent matching attempt for a different ride, trying next candidate',
+    );
   }
 
-  const expiresAt = new Date(Date.now() + env.MATCHING_OFFER_TIMEOUT_SECONDS * 1000);
-  const offer = await createOffer(rideId, top.driverId, expiresAt);
-
-  logger.info(
-    { rideId, driverId: top.driverId, rideRequestId: offer.id, radiusMeters: tier.radiusMeters },
-    'Matching: offered ride to driver',
-  );
-
-  return { outcome: 'offered', rideRequestId: offer.id, driverId: top.driverId };
+  return { outcome: 'no_candidates' };
 }
 
 /**

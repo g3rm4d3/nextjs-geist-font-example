@@ -555,3 +555,137 @@ describe('rides', () => {
     ).resolves.toBeDefined();
   });
 });
+
+describe('ride_requests', () => {
+  /** Two independent rides plus one driver, shared by the tests below —
+   * both hit the same "can this driver hold two open offers at once"
+   * question from a different ride each. */
+  async function insertTwoRidesAndOneDriver() {
+    const passengerA = await insertUser({ email: 'rr-passenger-a@example-dev.test', role: 'PASSENGER' });
+    const passengerB = await insertUser({ email: 'rr-passenger-b@example-dev.test', role: 'PASSENGER' });
+    const [passengerProfileA] = await db
+      .insert(schema.passengerProfiles)
+      .values({ userId: passengerA.id, firstName: 'RR', lastName: 'A' })
+      .returning();
+    const [passengerProfileB] = await db
+      .insert(schema.passengerProfiles)
+      .values({ userId: passengerB.id, firstName: 'RR', lastName: 'B' })
+      .returning();
+    if (!passengerProfileA || !passengerProfileB) throw new Error('insert failed');
+
+    const driverUser = await insertUser({ email: 'rr-driver@example-dev.test', role: 'DRIVER' });
+    const [driverProfile] = await db
+      .insert(schema.driverProfiles)
+      .values({
+        userId: driverUser.id,
+        firstName: 'RR',
+        lastName: 'Driver',
+        licenseNumber: `DL-${crypto.randomUUID()}`,
+        licenseState: 'CA',
+        onboardingStatus: 'APPROVED',
+      })
+      .returning();
+    if (!driverProfile) throw new Error('insert failed');
+
+    const [rideA] = await db
+      .insert(schema.rides)
+      .values({
+        passengerId: passengerProfileA.id,
+        idempotencyKey: crypto.randomUUID(),
+        pickupAddress: '1 Main St',
+        pickupLat: 0,
+        pickupLng: 0,
+        destinationAddress: '2 Main St',
+        destinationLat: 0,
+        destinationLng: 0,
+        status: 'SEARCHING_DRIVER',
+      })
+      .returning();
+    const [rideB] = await db
+      .insert(schema.rides)
+      .values({
+        passengerId: passengerProfileB.id,
+        idempotencyKey: crypto.randomUUID(),
+        pickupAddress: '3 Main St',
+        pickupLat: 0,
+        pickupLng: 0,
+        destinationAddress: '4 Main St',
+        destinationLat: 0,
+        destinationLng: 0,
+        status: 'SEARCHING_DRIVER',
+      })
+      .returning();
+    if (!rideA || !rideB) throw new Error('insert failed');
+
+    return { rideA, rideB, driverProfile };
+  }
+
+  it(
+    'rejects a second OFFERED row for a driver who already holds one open offer, ' +
+      'even for a completely different ride (Phase 21)',
+    async () => {
+      const { rideA, rideB, driverProfile } = await insertTwoRidesAndOneDriver();
+
+      await db.insert(schema.rideRequests).values({
+        rideId: rideA.id,
+        driverId: driverProfile.id,
+        status: 'OFFERED',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+
+      // Same driver, a different ride entirely — this is exactly the race
+      // routes/driverOffers.test.ts's "concurrent ride requests" test
+      // exercises through the HTTP surface; here it's asserted directly
+      // against the constraint that actually prevents it.
+      await expectPgError(
+        db.insert(schema.rideRequests).values({
+          rideId: rideB.id,
+          driverId: driverProfile.id,
+          status: 'OFFERED',
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+        'ride_requests_one_open_offer_per_driver_key',
+      );
+    },
+  );
+
+  it('allows a new OFFERED row for the same driver once their prior offer is no longer open', async () => {
+    const { rideA, rideB, driverProfile } = await insertTwoRidesAndOneDriver();
+
+    await db.insert(schema.rideRequests).values({
+      rideId: rideA.id,
+      driverId: driverProfile.id,
+      status: 'DECLINED',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await expect(
+      db.insert(schema.rideRequests).values({
+        rideId: rideB.id,
+        driverId: driverProfile.id,
+        status: 'OFFERED',
+        expiresAt: new Date(Date.now() + 60_000),
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('allows the same driver to be re-offered the same ride after declining (not scoped to rideId)', async () => {
+    const { rideA, driverProfile } = await insertTwoRidesAndOneDriver();
+
+    await db.insert(schema.rideRequests).values({
+      rideId: rideA.id,
+      driverId: driverProfile.id,
+      status: 'EXPIRED',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await expect(
+      db.insert(schema.rideRequests).values({
+        rideId: rideA.id,
+        driverId: driverProfile.id,
+        status: 'OFFERED',
+        expiresAt: new Date(Date.now() + 60_000),
+      }),
+    ).resolves.toBeDefined();
+  });
+});

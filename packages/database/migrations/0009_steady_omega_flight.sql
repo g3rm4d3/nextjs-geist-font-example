@@ -1,0 +1,2 @@
+DROP INDEX "ride_requests_open_offer_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "ride_requests_one_open_offer_per_driver_key" ON "ride_requests" USING btree ("driver_id") WHERE "ride_requests"."status" = 'OFFERED';

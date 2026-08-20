@@ -965,11 +965,14 @@ async function scenarioTwoDriverRace(metrics: MetricsCollector): Promise<void> {
       createOffer(rideId, driverB.driverProfileId, new Date(Date.now() + 60_000)),
     ]);
 
+    // driverA/driverB are freshly registered just above and hold no other
+    // open offer, so createOffer (Phase 21) is guaranteed to succeed for
+    // both — the `!`s reflect that guarantee.
     const [responseA, responseB] = await Promise.all([
-      apiCall<Ride>(metrics, category, 'accept-a', `/drivers/me/offer/${offerA.id}/accept`, {
+      apiCall<Ride>(metrics, category, 'accept-a', `/drivers/me/offer/${offerA!.id}/accept`, {
         token: driverA.accessToken,
       }),
-      apiCall<Ride>(metrics, category, 'accept-b', `/drivers/me/offer/${offerB.id}/accept`, {
+      apiCall<Ride>(metrics, category, 'accept-b', `/drivers/me/offer/${offerB!.id}/accept`, {
         token: driverB.accessToken,
       }),
     ]);
@@ -1028,11 +1031,14 @@ async function scenarioHighNetworkLatency(metrics: MetricsCollector): Promise<vo
         createOffer(rideId, fast.driverProfileId, new Date(Date.now() + 60_000)),
         createOffer(rideId, slow.driverProfileId, new Date(Date.now() + 60_000)),
       ]);
+      // fast/slow are freshly registered above and hold no other open
+      // offer, so createOffer (Phase 21) is guaranteed to succeed for
+      // both — the `!`s reflect that guarantee.
       const [responseFast, responseSlow] = await Promise.all([
-        apiCall<Ride>(metrics, raceCategory, 'accept-fast', `/drivers/me/offer/${offerFast.id}/accept`, {
+        apiCall<Ride>(metrics, raceCategory, 'accept-fast', `/drivers/me/offer/${offerFast!.id}/accept`, {
           token: fast.accessToken,
         }),
-        apiCall<Ride>(metrics, raceCategory, 'accept-slow-1500ms-latency', `/drivers/me/offer/${offerSlow.id}/accept`, {
+        apiCall<Ride>(metrics, raceCategory, 'accept-slow-1500ms-latency', `/drivers/me/offer/${offerSlow!.id}/accept`, {
           token: slow.accessToken,
           preSendDelayMs: 1500,
         }),

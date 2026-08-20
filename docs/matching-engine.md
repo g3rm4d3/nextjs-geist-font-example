@@ -61,7 +61,7 @@ requirement this phase's own design adds, implemented in
 | **APPROVED** | `driver_profiles.onboarding_status = 'APPROVED'`. Technically already implied by the next row — the database's `driver_profiles_availability_requires_approval_chk` CHECK constraint means a driver can never be `ONLINE` without also being `APPROVED` — but checked explicitly anyway as defense-in-depth, not because it's reachable to violate today. |
 | **ONLINE** | `driver_profiles.availability_status = 'ONLINE'`. There is no separate "AVAILABLE" enum value (`driverAvailabilityStatusEnum` only has `OFFLINE` / `ONLINE` / `BUSY`) — `ONLINE` *is* what the spec's "AVAILABLE" wording means here. |
 | **recent valid location** | An inner join against `driver_locations` with `recorded_at >=` a staleness cutoff, reusing Phase 6's exact `STALE_THRESHOLD_MS` (2 minutes) constant from `locationService.ts` rather than defining a second one that could drift out of sync. A driver with no location row at all is excluded by the inner join itself. |
-| **not already mid-offer** | Excludes any driver currently holding an open (`OFFERED`) `ride_requests` row for *any* ride — a driver can only ever be considering one offer at a time. |
+| **not already mid-offer** | Excludes any driver currently holding an open (`OFFERED`) `ride_requests` row for *any* ride — a driver can only ever be considering one offer at a time. This read is advisory, not authoritative — see "Concurrent, independent matching attempts" below for the real enforcement. |
 | **not already tried for this ride** | Callers pass every `driverId` already present in `ride_requests` for this specific ride (any status), so a single matching attempt for a ride never offers the same candidate twice. |
 
 ## Offer flow
@@ -126,6 +126,52 @@ Locking `rides` first means a losing transaction never holds any
 form. See the code comment on `handleAccept` in
 `apps/api/src/services/matchingService.ts` for the step-by-step.
 
+## Concurrent, independent matching attempts (Phase 21)
+
+The "acceptance atomicity" guarantee above covers two drivers racing to
+accept the *same* offer. It says nothing about two *different*, unrelated
+rides independently trying to match *at the same time* — e.g. two
+passengers requesting a ride within the same instant, each attempt's
+`findEligibleDrivers` read landing before either one's `createOffer`
+insert commits. Until this phase, that second race was real and unhandled:
+`findEligibleDrivers`'s "not already mid-offer" check and the subsequent
+`INSERT` were two separate, non-atomic steps, so both attempts could read
+the same driver as free and both successfully insert an `OFFERED` row for
+them — silently double-booking a driver across two rides. Only one of the
+two rows was ever visible (`GET /drivers/me/offer`'s query is `LIMIT 1`);
+the other sat live and invisible until the 15s sweep expired it, quietly
+stalling that ride's matching in the meantime.
+
+This was found by `apps/api/src/routes/driverOffers.test.ts`'s
+"concurrent ride requests — no double-assignment across independent
+rides" test (8 concurrent passengers, 5 eligible drivers) — not by
+inspection — and fixed at both layers, following this project's own
+established pattern of a service-layer check backed by a real database
+constraint, not just the check alone:
+
+- **Database**: `ride_requests_one_open_offer_per_driver_key`, a partial
+  `UNIQUE` index on `ride_requests.driver_id` `WHERE status = 'OFFERED'`
+  (migration `0009`), replacing what used to be a plain, non-unique index
+  on `(ride_id, driver_id)` — which constrained nothing about a driver
+  holding two open offers across *different* rides, only made lookups
+  fast. This is the actual fix; everything else is graceful handling of
+  the race it now makes impossible to miss.
+- **Application**: `matchingRepository.createOffer` catches that specific
+  constraint violation and returns `undefined` instead of throwing — a
+  losing attempt isn't an error, it's "this candidate turned out not to
+  be free after all." `matchingService.findAndOfferNextCandidate` already
+  computes a fully-ranked candidate list (`rankCandidates`), so on a
+  race-loss it simply tries the next-ranked candidate in the same call
+  instead of returning `no_candidates` and waiting for the sweep — free,
+  since the ranking was already done.
+
+`packages/database/src/constraints.test.ts` also asserts the constraint
+directly at the database level (independent of the matching service):
+rejects a second `OFFERED` row for a driver already holding one on a
+*different* ride; allows a new one once the prior offer is no longer
+`OFFERED`; allows the same driver to be re-offered the *same* ride later
+(the constraint is scoped to `driverId` alone, not `(rideId, driverId)`).
+
 ## Background sweep
 
 `sweepExpiredOffers` (called on a `setInterval`, `MATCHING_SWEEP_INTERVAL_MS`,
@@ -189,10 +235,26 @@ the map.
     exactly one `200`, one `409`, exactly one `ACCEPTED` row, every other
     row `EXPIRED`. Then the same guarantee at 50-driver scale (the
     spec's own "test with 50 simulated drivers"), which is what surfaced
-    and proved the fix for the deadlock described above.
+    and proved the fix for the deadlock described above. Phase 21 adds a
+    second, distinct concurrency dimension: 8 concurrent passengers
+    independently requesting rides against a pool of 5 eligible drivers —
+    every offered driver appears at most once across the resulting
+    offers, which is what surfaced the cross-ride double-offer bug fixed
+    in "Concurrent, independent matching attempts" above.
+- `packages/database/src/constraints.test.ts` — direct database-level
+  assertions for `ride_requests_one_open_offer_per_driver_key` (Phase 21):
+  a duplicate `OFFERED` insert for an already-offered driver is rejected;
+  a new `OFFERED` insert is allowed once the prior offer is no longer
+  open; re-offering the same driver the same ride later is allowed (the
+  constraint isn't scoped to `rideId`).
+- `apps/api/src/routes/criticalPath.test.ts` (Phase 21) exercises the
+  full spec-literal critical path — registration through matching,
+  accept, lifecycle, TEST payment, earnings, ratings, and admin
+  inspection — as one continuous end-to-end test, distinct from this
+  file's own narrower, matching-only integration tests.
 - Full repo verification after this phase: lint, typecheck, and a clean
-  `rm -rf packages/*/dist && npm run build` all pass; 238 tests passing
-  repo-wide (100 of them in `apps/api`).
+  `rm -rf packages/*/dist && npm run build` all pass; 242 apps/api tests
+  and 21 `packages/database` constraint tests passing.
 
 ## Known limitations
 

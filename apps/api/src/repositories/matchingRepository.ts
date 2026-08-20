@@ -1,6 +1,7 @@
 import { schema } from '@rideshare/database';
 import { and, eq, gte, inArray, notInArray, sql } from 'drizzle-orm';
 import { db } from '../db/client';
+import { isUniqueViolation } from '../lib/pgErrors';
 
 export type RideRequestRow = typeof schema.rideRequests.$inferSelect;
 
@@ -72,17 +73,35 @@ export async function findTriedDriverIdsForRide(rideId: string): Promise<string[
   return rows.map((row) => row.driverId);
 }
 
+/**
+ * `undefined` (not a throw) means this specific driver lost a race with
+ * a *different*, concurrent, independent matching attempt that offered
+ * them a moment earlier — `ride_requests_one_open_offer_per_driver_key`
+ * (Phase 21) is what actually makes that impossible to miss; the read
+ * this function's own caller did just before calling it
+ * (findEligibleDrivers) is not itself atomic with this insert, so two
+ * concurrent attempts can both see the same driver as free. The caller
+ * treats this exactly like the driver was never eligible in the first
+ * place — try the next-ranked candidate, not an error.
+ */
 export async function createOffer(
   rideId: string,
   driverId: string,
   expiresAt: Date,
-): Promise<RideRequestRow> {
-  const [row] = await db
-    .insert(schema.rideRequests)
-    .values({ rideId, driverId, status: 'OFFERED', expiresAt })
-    .returning();
-  if (!row) throw new Error('Failed to create ride offer');
-  return row;
+): Promise<RideRequestRow | undefined> {
+  try {
+    const [row] = await db
+      .insert(schema.rideRequests)
+      .values({ rideId, driverId, status: 'OFFERED', expiresAt })
+      .returning();
+    if (!row) throw new Error('Failed to create ride offer');
+    return row;
+  } catch (error) {
+    if (isUniqueViolation(error, 'ride_requests_one_open_offer_per_driver_key')) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 export async function findRideRequestById(id: string): Promise<RideRequestRow | undefined> {
