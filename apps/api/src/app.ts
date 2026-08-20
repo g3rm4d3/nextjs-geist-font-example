@@ -5,6 +5,7 @@ import pinoHttp from 'pino-http';
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { metricsMiddleware } from './middleware/metrics';
 import { requestIdMiddleware } from './middleware/requestId';
 import { adminRouter } from './routes/admin';
 import { adminAuditLogsRouter } from './routes/adminAuditLogs';
@@ -12,6 +13,7 @@ import { adminDashboardRouter } from './routes/adminDashboard';
 import { adminDocumentsRouter } from './routes/adminDocuments';
 import { adminDriversRouter } from './routes/adminDrivers';
 import { adminEarningsRouter } from './routes/adminEarnings';
+import { adminMetricsRouter } from './routes/adminMetrics';
 import { adminPassengersRouter } from './routes/adminPassengers';
 import { adminPaymentsRouter } from './routes/adminPayments';
 import { adminPricingRouter } from './routes/adminPricing';
@@ -54,6 +56,10 @@ export function createApp(): Express {
       autoLogging: env.NODE_ENV !== 'test',
     }),
   );
+  // Phase 22: wraps every route below, so GET /admin/metrics itself is
+  // the one endpoint whose own timing is recorded by a request that
+  // started before it, not by itself.
+  app.use(metricsMiddleware);
 
   // Mounted BEFORE the global express.json() body parser: Stripe signs
   // the exact raw request body bytes (see routes/webhooks.ts), so this
@@ -95,6 +101,7 @@ export function createApp(): Express {
   app.use(adminSettingsRouter);
   app.use(adminDashboardRouter);
   app.use(adminEarningsRouter);
+  app.use(adminMetricsRouter);
   app.use(adminAuditLogsRouter);
   app.use(routePreviewRouter);
   app.use(pricingRouter);

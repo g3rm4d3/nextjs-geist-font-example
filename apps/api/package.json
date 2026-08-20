@@ -21,6 +21,8 @@
     "@rideshare/logging": "*",
     "@rideshare/maps": "*",
     "@rideshare/matching": "*",
+    "@rideshare/notifications": "*",
+    "@rideshare/observability": "*",
     "@rideshare/payments": "*",
     "@rideshare/pricing": "*",
     "@rideshare/screening": "*",

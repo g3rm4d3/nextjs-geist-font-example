@@ -1,5 +1,6 @@
 import type { ApiErrorResponse } from '@rideshare/types';
 import type { NextFunction, Request, Response } from 'express';
+import { errorTracker } from '../lib/errorTracker';
 import { logger } from '../lib/logger';
 import { AppError, NotFoundError } from '../lib/errors';
 
@@ -19,10 +20,18 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const code = isAppError ? err.code : 'INTERNAL_ERROR';
   const message = isAppError ? err.message : 'An unexpected error occurred';
 
+  // Phase 22: the error tracker gets exactly the same "unexpected /
+  // server-side failure" errors that already earn a logger.error(...)
+  // call below, never the routine 4xx AppErrors (a validation failure,
+  // a 404, a conflict) that get logger.warn(...) instead — those are
+  // expected outcomes of normal API usage, not something worth paging
+  // anyone about.
   if (!isAppError) {
     logger.error({ err, requestId: req.requestId }, 'Unhandled error');
+    errorTracker.captureException(err, { requestId: req.requestId, route: req.path });
   } else if (statusCode >= 500) {
     logger.error({ err, requestId: req.requestId }, message);
+    errorTracker.captureException(err, { requestId: req.requestId, route: req.path, code });
   } else {
     logger.warn({ requestId: req.requestId, code }, message);
   }

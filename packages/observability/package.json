@@ -1,0 +1,22 @@
+{
+  "name": "@rideshare/observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 22 observability primitives: an ErrorTracker abstraction (MOCK/logging implementation, same pattern as PaymentProvider/NotificationProvider/etc.) and an in-memory per-route performance metrics recorder.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

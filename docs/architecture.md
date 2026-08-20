@@ -158,8 +158,10 @@ itself is up (`status: "ok"`), and whether it can currently reach
 PostgreSQL (`data.database.connected`). A database blip does not fail the
 health check outright — that distinction matters operationally (a load
 balancer shouldn't necessarily pull the instance for a transient DB hiccup,
-but an on-call engineer should still see it) and will matter more once
-Phase 22 (observability) adds a separate readiness endpoint.
+but an on-call engineer should still see it). Phase 22 added the readiness
+endpoint this forward-referenced: `GET /ready`, which *does* fail (`503`)
+on that same database blip — see `docs/troubleshooting.md`'s "Health vs.
+readiness" section for the full liveness/readiness distinction.
 
 ## Toolchain version choices
 

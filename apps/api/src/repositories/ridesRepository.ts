@@ -1,6 +1,7 @@
 import { schema } from '@rideshare/database';
 import { and, count, desc, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
+import { logger } from '../lib/logger';
 
 export type RideRow = typeof schema.rides.$inferSelect;
 type RideStatusValue = RideRow['status'];
@@ -209,20 +210,20 @@ export interface AdvanceRideStatusInput {
 export async function advanceRideStatus(
   input: AdvanceRideStatusInput,
 ): Promise<RideRow | undefined> {
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const conditions = [
       eq(schema.rides.id, input.rideId),
       eq(schema.rides.status, input.fromStatus),
     ];
     if (input.driverId) conditions.push(eq(schema.rides.driverId, input.driverId));
 
-    const [updated] = await tx
+    const [row] = await tx
       .update(schema.rides)
       .set({ status: input.toStatus, updatedAt: new Date(), ...input.extraFields })
       .where(and(...conditions))
       .returning();
 
-    if (!updated) return undefined;
+    if (!row) return undefined;
 
     await tx.insert(schema.rideEvents).values({
       rideId: input.rideId,
@@ -245,8 +246,35 @@ export async function advanceRideStatus(
         );
     }
 
-    return updated;
+    return row;
   });
+
+  // PHASE 22: this is the one place every ride status change goes
+  // through (see the function-level comment above), so it's also the
+  // one place that can log every ride transition without every one of
+  // rideLifecycleService's dozen call sites needing to remember to. The
+  // `rideId` field is this codebase's "ride correlation ID" — every log
+  // line about a given ride, from every part of the system (an HTTP
+  // request, the background matching sweep, a Stripe webhook), carries
+  // it, so `rideId` is what a log aggregator or `grep` groups on to see
+  // one ride's full story, independent of which HTTP request (if any)
+  // triggered each individual line. `ride_events` (written just above,
+  // same transaction) is the durable, queryable record of the same
+  // fact; this line is its operational/log-stream counterpart, not a
+  // replacement for it.
+  if (updated) {
+    logger.info(
+      {
+        rideId: input.rideId,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+        actorType: input.actorType,
+      },
+      'Ride transition',
+    );
+  }
+
+  return updated;
 }
 
 export interface ActiveRideAdminRow {

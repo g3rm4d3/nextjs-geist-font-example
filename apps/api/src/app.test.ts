@@ -29,6 +29,23 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /ready', () => {
+  it('returns 200 with status "ready" when the database is reachable', async () => {
+    const response = await request(app).get('/ready');
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe('ready');
+    expect(response.body.data.database.connected).toBe(true);
+    expect(response.body.requestId).toBeTruthy();
+  });
+
+  it('does not include an uptimeSeconds field (that is /health\'s concern, not readiness)', async () => {
+    const response = await request(app).get('/ready');
+    expect(response.body.data.uptimeSeconds).toBeUndefined();
+  });
+});
+
 describe('unknown routes', () => {
   it('returns a structured 404 error envelope', async () => {
     const response = await request(app).get('/this-route-does-not-exist');
