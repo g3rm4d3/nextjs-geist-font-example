@@ -75,46 +75,52 @@ export default function ActiveRidesPage() {
       {rides.length === 0 ? (
         <p className="text-sm text-slate-500">No active rides right now.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Passenger</th>
-              <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Vehicle</th>
-              <th className="px-4 py-3">Pickup</th>
-              <th className="px-4 py-3">Destination</th>
-              <th className="px-4 py-3">Requested</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rides.map((ride) => (
-              <tr key={ride.id} className="border-t border-slate-100" data-testid="active-ride-row">
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      STATUS_BADGE_STYLE[ride.status] ?? 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {ride.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-900">{ride.passengerName}</td>
-                <td className="px-4 py-3 text-slate-900">{ride.driverName ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {ride.vehicle
-                    ? `${ride.vehicle.color} ${ride.vehicle.make} ${ride.vehicle.model} · ${ride.vehicle.licensePlate}`
-                    : '—'}
-                </td>
-                <td className="px-4 py-3 text-slate-600">{ride.pickup.label}</td>
-                <td className="px-4 py-3 text-slate-600">{ride.destination.label}</td>
-                <td className="px-4 py-3 text-slate-500">
-                  {new Date(ride.requestedAt).toLocaleTimeString()}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Passenger</th>
+                <th className="px-4 py-3">Driver</th>
+                <th className="px-4 py-3">Vehicle</th>
+                <th className="px-4 py-3">Pickup</th>
+                <th className="px-4 py-3">Destination</th>
+                <th className="px-4 py-3">Requested</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rides.map((ride) => (
+                <tr
+                  key={ride.id}
+                  className="border-t border-slate-100"
+                  data-testid="active-ride-row"
+                >
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        STATUS_BADGE_STYLE[ride.status] ?? 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {ride.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">{ride.passengerName}</td>
+                  <td className="px-4 py-3 text-slate-900">{ride.driverName ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {ride.vehicle
+                      ? `${ride.vehicle.color} ${ride.vehicle.make} ${ride.vehicle.model} · ${ride.vehicle.licensePlate}`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{ride.pickup.label}</td>
+                  <td className="px-4 py-3 text-slate-600">{ride.destination.label}</td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {new Date(ride.requestedAt).toLocaleTimeString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

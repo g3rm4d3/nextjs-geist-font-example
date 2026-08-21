@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@rideshare/design-tokens": "*",
     "@rideshare/types": "*",
     "@rideshare/validation": "*",
     "leaflet": "^1.9.4",

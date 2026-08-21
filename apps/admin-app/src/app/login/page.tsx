@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
         </div>
 
         {errorMessage && (
-          <p className="text-sm text-red-600" data-testid="login-error">
+          <p className="text-sm text-red-600" data-testid="login-error" role="alert">
             {errorMessage}
           </p>
         )}

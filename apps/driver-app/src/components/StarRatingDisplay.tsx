@@ -10,7 +10,12 @@ import { StyleSheet, Text, View } from 'react-native';
 export function StarRatingDisplay({ averageRating }: { averageRating: number | null }) {
   if (averageRating === null) return null;
   return (
-    <View style={styles.row} testID="star-rating-display">
+    <View
+      style={styles.row}
+      testID="star-rating-display"
+      accessible
+      accessibilityLabel={`${averageRating.toFixed(1)} out of 5 stars`}
+    >
       <Text style={styles.star}>★</Text>
       <Text style={styles.value}>{averageRating.toFixed(1)}</Text>
     </View>

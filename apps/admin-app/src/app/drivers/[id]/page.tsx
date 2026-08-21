@@ -59,7 +59,9 @@ export default function DriverDetailPage() {
         if (!cancelled) setDriver(result);
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not load this driver.');
+          setErrorMessage(
+            error instanceof ApiClientError ? error.message : 'Could not load this driver.',
+          );
         }
       }
     }
@@ -108,7 +110,11 @@ export default function DriverDetailPage() {
               <Field label="License state" value={driver.licenseState} />
               <Field
                 label="License expires"
-                value={driver.licenseExpiresAt ? new Date(driver.licenseExpiresAt).toLocaleDateString() : '—'}
+                value={
+                  driver.licenseExpiresAt
+                    ? new Date(driver.licenseExpiresAt).toLocaleDateString()
+                    : '—'
+                }
               />
               <Field
                 label="Rating"
@@ -126,7 +132,10 @@ export default function DriverDetailPage() {
             <h2 className="mb-2 text-sm font-semibold text-slate-900">Vehicle</h2>
             {driver.vehicle ? (
               <dl>
-                <Field label="Make/model" value={`${driver.vehicle.make} ${driver.vehicle.model}`} />
+                <Field
+                  label="Make/model"
+                  value={`${driver.vehicle.make} ${driver.vehicle.model}`}
+                />
                 <Field label="Year" value={driver.vehicle.year} />
                 <Field label="Color" value={driver.vehicle.color} />
                 <Field label="Plate" value={driver.vehicle.licensePlate} />
@@ -142,24 +151,28 @@ export default function DriverDetailPage() {
             {driver.documents.length === 0 ? (
               <p className="text-sm text-slate-500">No documents uploaded.</p>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="py-1">Type</th>
-                    <th className="py-1">Status</th>
-                    <th className="py-1">Uploaded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {driver.documents.map((doc) => (
-                    <tr key={doc.id} className="border-t border-slate-100">
-                      <td className="py-2">{doc.documentType}</td>
-                      <td className="py-2">{doc.reviewStatus}</td>
-                      <td className="py-2 text-slate-500">{new Date(doc.uploadedAt).toLocaleDateString()}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="py-1">Type</th>
+                      <th className="py-1">Status</th>
+                      <th className="py-1">Uploaded</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {driver.documents.map((doc) => (
+                      <tr key={doc.id} className="border-t border-slate-100">
+                        <td className="py-2">{doc.documentType}</td>
+                        <td className="py-2">{doc.reviewStatus}</td>
+                        <td className="py-2 text-slate-500">
+                          {new Date(doc.uploadedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -191,7 +204,9 @@ export default function DriverDetailPage() {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => void runAction(() => runBackgroundCheck(accessToken as string, driver.id))}
+                onClick={() =>
+                  void runAction(() => runBackgroundCheck(accessToken as string, driver.id))
+                }
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Run background check
@@ -264,7 +279,9 @@ export default function DriverDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">Suspending a driver requires SUPER_ADMIN.</p>
+                  <p className="text-sm text-slate-500">
+                    Suspending a driver requires SUPER_ADMIN.
+                  </p>
                 ))}
 
               {driver.onboardingStatus === 'SUSPENDED' &&
@@ -280,7 +297,9 @@ export default function DriverDetailPage() {
                     Reactivate (SUPER_ADMIN)
                   </button>
                 ) : (
-                  <p className="text-sm text-slate-500">Reactivating a driver requires SUPER_ADMIN.</p>
+                  <p className="text-sm text-slate-500">
+                    Reactivating a driver requires SUPER_ADMIN.
+                  </p>
                 ))}
 
               {(driver.onboardingStatus === 'DRAFT' || driver.onboardingStatus === 'REJECTED') && (

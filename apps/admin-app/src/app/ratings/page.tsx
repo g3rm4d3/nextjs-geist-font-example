@@ -25,7 +25,9 @@ export default function RatingsPage() {
         if (!cancelled) setRatings(result);
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not load ratings.');
+          setErrorMessage(
+            error instanceof ApiClientError ? error.message : 'Could not load ratings.',
+          );
         }
       }
     }
@@ -37,42 +39,55 @@ export default function RatingsPage() {
   }, [accessToken]);
 
   return (
-    <AdminShell title="Ratings" subtitle={`${ratings.length} rating(s)`} errorMessage={errorMessage}>
+    <AdminShell
+      title="Ratings"
+      subtitle={`${ratings.length} rating(s)`}
+      errorMessage={errorMessage}
+    >
       {ratings.length === 0 ? (
         <p className="text-sm text-slate-500">No ratings yet.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Direction</th>
-              <th className="px-4 py-3">Rater</th>
-              <th className="px-4 py-3">Ratee</th>
-              <th className="px-4 py-3">Stars</th>
-              <th className="px-4 py-3">Comment</th>
-              <th className="px-4 py-3">Ride</th>
-              <th className="px-4 py-3">When</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ratings.map((rating) => (
-              <tr key={rating.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 text-slate-600">
-                  {rating.direction === 'PASSENGER_TO_DRIVER' ? 'Passenger → Driver' : 'Driver → Passenger'}
-                </td>
-                <td className="px-4 py-3 text-slate-900">{rating.raterName}</td>
-                <td className="px-4 py-3 text-slate-900">{rating.rateeName}</td>
-                <td className="px-4 py-3 text-amber-600">{'★'.repeat(rating.stars)}</td>
-                <td className="px-4 py-3 text-slate-600">{rating.comment ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <Link href={`/rides/${rating.rideId}`} className="text-slate-600 hover:underline">
-                    {rating.rideId.slice(0, 8)}…
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{new Date(rating.createdAt).toLocaleString()}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Direction</th>
+                <th className="px-4 py-3">Rater</th>
+                <th className="px-4 py-3">Ratee</th>
+                <th className="px-4 py-3">Stars</th>
+                <th className="px-4 py-3">Comment</th>
+                <th className="px-4 py-3">Ride</th>
+                <th className="px-4 py-3">When</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ratings.map((rating) => (
+                <tr key={rating.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-600">
+                    {rating.direction === 'PASSENGER_TO_DRIVER'
+                      ? 'Passenger → Driver'
+                      : 'Driver → Passenger'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">{rating.raterName}</td>
+                  <td className="px-4 py-3 text-slate-900">{rating.rateeName}</td>
+                  <td className="px-4 py-3 text-amber-600">{'★'.repeat(rating.stars)}</td>
+                  <td className="px-4 py-3 text-slate-600">{rating.comment ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/rides/${rating.rideId}`}
+                      className="text-slate-600 hover:underline"
+                    >
+                      {rating.rideId.slice(0, 8)}…
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {new Date(rating.createdAt).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

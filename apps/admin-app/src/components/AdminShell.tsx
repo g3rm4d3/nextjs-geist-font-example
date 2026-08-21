@@ -114,7 +114,10 @@ export function AdminShell({ title, subtitle, errorMessage, children }: AdminShe
           </p>
           <p className="mt-1 font-semibold text-slate-900">Rideshare Admin</p>
         </div>
-        <nav className="flex-1 space-y-4 overflow-y-auto px-2 py-4 text-sm">
+        <nav
+          className="flex-1 space-y-4 overflow-y-auto px-2 py-4 text-sm"
+          aria-label="Admin sections"
+        >
           {NAV_SECTIONS.map((section) => (
             <div key={section.heading}>
               <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -129,6 +132,7 @@ export function AdminShell({ title, subtitle, errorMessage, children }: AdminShe
                       <li key={item.href}>
                         <Link
                           href={item.href}
+                          aria-current={active ? 'page' : undefined}
                           className={`block rounded-md px-2 py-1.5 ${
                             active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                           }`}
@@ -144,14 +148,20 @@ export function AdminShell({ title, subtitle, errorMessage, children }: AdminShe
         </nav>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+      {/* min-w-0 is load-bearing here, not decorative: without it a flex
+          item won't shrink below its content's intrinsic width, so a wide
+          table inside would silently defeat its own overflow-x-auto and
+          blow out this whole column (and the sidebar with it) instead of
+          scrolling in place — a classic flexbox gotcha, not a hypothetical
+          one (found during Phase 23's responsive-layout review). */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
           <div>
             <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
             {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span>{user?.email}</span>
+            <span className="hidden sm:inline">{user?.email}</span>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
               {user?.role}
             </span>
@@ -170,7 +180,11 @@ export function AdminShell({ title, subtitle, errorMessage, children }: AdminShe
         </header>
 
         {errorMessage && (
-          <p className="bg-red-50 px-6 py-2 text-sm text-red-600" data-testid="admin-shell-error">
+          <p
+            className="bg-red-50 px-6 py-2 text-sm text-red-600"
+            data-testid="admin-shell-error"
+            role="alert"
+          >
             {errorMessage}
           </p>
         )}

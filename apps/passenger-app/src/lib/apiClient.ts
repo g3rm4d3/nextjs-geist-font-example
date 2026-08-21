@@ -47,16 +47,38 @@ async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; accessToken?: string } = {},
 ): Promise<T> {
-  const response = await fetch(`${env.apiUrl}${path}`, {
-    method: options.method ?? 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+  // Phase 23: before this, a genuine network failure (no connection, DNS
+  // failure, request timeout) surfaced here as a raw `TypeError` from
+  // `fetch` — every screen's `error instanceof ApiClientError ?
+  // error.message : 'Something went wrong...'` branch already caught it,
+  // but with a generic message indistinguishable from a real server
+  // error. Wrapping it in the same ApiClientError shape, with a
+  // NETWORK_ERROR code and an actionable message, fixes every screen's
+  // experience in one place instead of forty — see docs/design-system.md.
+  let response: Response;
+  try {
+    response = await fetch(`${env.apiUrl}${path}`, {
+      method: options.method ?? 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch {
+    throw new ApiClientError('NETWORK_ERROR', "Can't reach the server. Check your connection and try again.");
+  }
 
-  const json = (await response.json()) as ApiResponse<T>;
+  let json: ApiResponse<T>;
+  try {
+    json = (await response.json()) as ApiResponse<T>;
+  } catch {
+    // A non-JSON response (e.g. an HTML error page from a proxy/gateway
+    // sitting in front of an unreachable server) is the same
+    // "couldn't actually talk to the API" story as the fetch itself
+    // failing above — same code, same message.
+    throw new ApiClientError('NETWORK_ERROR', "Can't reach the server. Check your connection and try again.");
+  }
 
   if (!json.success) {
     throw new ApiClientError(json.error.code, json.error.message, json.error.details);

@@ -134,6 +134,8 @@ export function IncomingRequestScreen({ navigation }: Props) {
           style={styles.secondaryButton}
           onPress={() => navigation.navigate('DriverHomeMap')}
           testID="back-to-map-button"
+          accessibilityRole="button"
+          accessibilityLabel="Back to map"
         >
           <Text style={styles.secondaryButtonText}>Back to map</Text>
         </Pressable>
@@ -146,7 +148,15 @@ export function IncomingRequestScreen({ navigation }: Props) {
       <View style={styles.card}>
         <View style={styles.timerRow}>
           <Text style={styles.timerLabel}>Respond in</Text>
-          <Text style={styles.timerValue} testID="offer-countdown">
+          <Text
+            style={styles.timerValue}
+            testID="offer-countdown"
+            // Deliberately no accessibilityLiveRegion here — announcing a
+            // per-second-changing value on every tick would be a screen
+            // reader anti-pattern (constant interruption), not a help.
+            // The label is still available on manual focus/swipe.
+            accessibilityLabel={`${secondsLeft ?? '--'} seconds to respond`}
+          >
             {secondsLeft ?? '--'}s
           </Text>
         </View>
@@ -175,7 +185,11 @@ export function IncomingRequestScreen({ navigation }: Props) {
         </View>
       </View>
 
-      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      {errorMessage && (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {errorMessage}
+        </Text>
+      )}
 
       <View style={styles.actions}>
         <Pressable
@@ -183,6 +197,9 @@ export function IncomingRequestScreen({ navigation }: Props) {
           onPress={handleDecline}
           disabled={isResponding}
           testID="decline-button"
+          accessibilityRole="button"
+          accessibilityLabel="Decline ride"
+          accessibilityState={{ disabled: isResponding }}
         >
           <Text style={styles.declineButtonText}>Decline</Text>
         </Pressable>
@@ -191,6 +208,9 @@ export function IncomingRequestScreen({ navigation }: Props) {
           onPress={handleAccept}
           disabled={isResponding}
           testID="accept-button"
+          accessibilityRole="button"
+          accessibilityLabel="Accept ride"
+          accessibilityState={{ disabled: isResponding, busy: isResponding }}
         >
           {isResponding ? (
             <ActivityIndicator color="#1c1917" />

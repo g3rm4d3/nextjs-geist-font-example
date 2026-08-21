@@ -1,6 +1,10 @@
 'use client';
 
-import type { AdminDriverEarningsRow, EarningsPeriodTotals, PlatformRevenueSummary } from '@rideshare/types';
+import type {
+  AdminDriverEarningsRow,
+  EarningsPeriodTotals,
+  PlatformRevenueSummary,
+} from '@rideshare/types';
 import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/AdminShell';
 import { useAdminAuth } from '@/context/AdminAuthContext';
@@ -33,7 +37,9 @@ function RevenueCard({ label, totals }: { label: string; totals: EarningsPeriodT
         </div>
         <div className="flex justify-between">
           <dt>Driver earnings</dt>
-          <dd className="font-medium text-slate-900">{formatCents(totals.driverGrossEarningsCents)}</dd>
+          <dd className="font-medium text-slate-900">
+            {formatCents(totals.driverGrossEarningsCents)}
+          </dd>
         </div>
       </dl>
     </div>
@@ -91,7 +97,11 @@ export default function RevenuePage() {
   }, [accessToken, refreshCount]);
 
   return (
-    <AdminShell title="Earnings" subtitle="Platform revenue & per-driver breakdown" errorMessage={errorMessage}>
+    <AdminShell
+      title="Earnings"
+      subtitle="Platform revenue & per-driver breakdown"
+      errorMessage={errorMessage}
+    >
       <div className="mb-4 flex justify-end">
         <button
           type="button"
@@ -113,32 +123,40 @@ export default function RevenuePage() {
         !isLoading && <p className="text-sm text-slate-500">No revenue data yet.</p>
       )}
 
-      <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-900">Per-driver breakdown (all-time)</h2>
+      <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-900">
+        Per-driver breakdown (all-time)
+      </h2>
       {byDriver.length === 0 ? (
         <p className="text-sm text-slate-500">No driver earnings recorded yet.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Rides</th>
-              <th className="px-4 py-3">Gross fare</th>
-              <th className="px-4 py-3">Platform commission</th>
-              <th className="px-4 py-3">Driver earnings</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byDriver.map((row) => (
-              <tr key={row.driverId} className="border-t border-slate-100">
-                <td className="px-4 py-3 text-slate-900">{row.driverName}</td>
-                <td className="px-4 py-3 text-slate-600">{row.rideCount}</td>
-                <td className="px-4 py-3 text-slate-600">{formatCents(row.grossFareCents)}</td>
-                <td className="px-4 py-3 text-slate-600">{formatCents(row.platformCommissionCents)}</td>
-                <td className="px-4 py-3 text-slate-600">{formatCents(row.driverGrossEarningsCents)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Driver</th>
+                <th className="px-4 py-3">Rides</th>
+                <th className="px-4 py-3">Gross fare</th>
+                <th className="px-4 py-3">Platform commission</th>
+                <th className="px-4 py-3">Driver earnings</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {byDriver.map((row) => (
+                <tr key={row.driverId} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-900">{row.driverName}</td>
+                  <td className="px-4 py-3 text-slate-600">{row.rideCount}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatCents(row.grossFareCents)}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {formatCents(row.platformCommissionCents)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {formatCents(row.driverGrossEarningsCents)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

@@ -1,0 +1,22 @@
+{
+  "name": "@rideshare/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 23's original temporary brand identity, formalized: shared color/typography/spacing/touch-target tokens for the passenger app, driver app, and admin app. See docs/design-system.md.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@rideshare/config": "*",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

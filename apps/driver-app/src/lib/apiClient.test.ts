@@ -65,6 +65,27 @@ describe('apiClient', () => {
     );
   });
 
+  it('throws a NETWORK_ERROR ApiClientError when fetch itself rejects (Phase 23)', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed')) as unknown as typeof fetch;
+
+    await expect(login({ email: 'dana@example.com', password: 'abcd1234' })).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
+    await expect(login({ email: 'dana@example.com', password: 'abcd1234' })).rejects.toBeInstanceOf(
+      ApiClientError,
+    );
+  });
+
+  it('throws a NETWORK_ERROR ApiClientError when the response body is not valid JSON (Phase 23)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+    }) as unknown as typeof fetch;
+
+    await expect(login({ email: 'dana@example.com', password: 'abcd1234' })).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
+  });
+
   it('PATCHes availability with the access token as a Bearer header', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       json: () =>

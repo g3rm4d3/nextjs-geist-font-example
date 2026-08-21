@@ -50,11 +50,16 @@ export default function AllRidesPage() {
 
     async function load(token: string, statusFilter: StatusFilter) {
       try {
-        const result = await listAdminRides(token, statusFilter === 'ALL' ? undefined : statusFilter);
+        const result = await listAdminRides(
+          token,
+          statusFilter === 'ALL' ? undefined : statusFilter,
+        );
         if (!cancelled) setRides(result);
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not load rides.');
+          setErrorMessage(
+            error instanceof ApiClientError ? error.message : 'Could not load rides.',
+          );
         }
       }
     }
@@ -75,7 +80,9 @@ export default function AllRidesPage() {
             type="button"
             onClick={() => setFilter(option)}
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              filter === option ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              filter === option
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             {option}
@@ -86,44 +93,48 @@ export default function AllRidesPage() {
       {rides.length === 0 ? (
         <p className="text-sm text-slate-500">No rides match this filter.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Passenger</th>
-              <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Fare</th>
-              <th className="px-4 py-3">Requested</th>
-              <th className="px-4 py-3">Completed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rides.map((ride) => (
-              <tr key={ride.id} className="border-t border-slate-100">
-                <td className="px-4 py-3">
-                  <Link href={`/rides/${ride.id}`} className="hover:underline">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                        STATUS_BADGE_STYLE[ride.status] ?? 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {ride.status}
-                    </span>
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-900">{ride.passengerName}</td>
-                <td className="px-4 py-3 text-slate-900">{ride.driverName ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {ride.finalFareCents !== null ? formatCents(ride.finalFareCents) : '—'}
-                </td>
-                <td className="px-4 py-3 text-slate-500">{new Date(ride.requestedAt).toLocaleString()}</td>
-                <td className="px-4 py-3 text-slate-500">
-                  {ride.completedAt ? new Date(ride.completedAt).toLocaleString() : '—'}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Passenger</th>
+                <th className="px-4 py-3">Driver</th>
+                <th className="px-4 py-3">Fare</th>
+                <th className="px-4 py-3">Requested</th>
+                <th className="px-4 py-3">Completed</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rides.map((ride) => (
+                <tr key={ride.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">
+                    <Link href={`/rides/${ride.id}`} className="hover:underline">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                          STATUS_BADGE_STYLE[ride.status] ?? 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {ride.status}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">{ride.passengerName}</td>
+                  <td className="px-4 py-3 text-slate-900">{ride.driverName ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {ride.finalFareCents !== null ? formatCents(ride.finalFareCents) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {new Date(ride.requestedAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {ride.completedAt ? new Date(ride.completedAt).toLocaleString() : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

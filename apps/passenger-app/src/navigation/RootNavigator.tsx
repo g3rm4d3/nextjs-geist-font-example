@@ -1,5 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { PushTokenRegistrar } from '../components/PushTokenRegistrar';
 import { useAuth } from '../context/AuthContext';
 import { RideDraftProvider } from '../context/RideDraftContext';
@@ -52,6 +53,7 @@ export function RootNavigator() {
   return (
     <RideDraftProvider>
       {status === 'signedIn' && accessToken && <PushTokenRegistrar accessToken={accessToken} />}
+      <OfflineBanner />
       <NavigationContainer>
         <Stack.Navigator screenOptions={SCREEN_OPTIONS}>
           {status === 'signedOut' ? (

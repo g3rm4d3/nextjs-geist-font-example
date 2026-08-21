@@ -227,6 +227,8 @@ export function DriverHomeMapScreen({ navigation }: Props) {
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile')}
             testID="profile-button"
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
           >
             <Text style={styles.profileButtonText}>👤</Text>
           </Pressable>
@@ -234,19 +236,21 @@ export function DriverHomeMapScreen({ navigation }: Props) {
             style={styles.notificationsButton}
             onPress={() => navigation.navigate('Notifications')}
             testID="notifications-button"
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
           >
             <Text style={styles.notificationsButtonText}>🔔</Text>
           </Pressable>
         </View>
         {profile && (
-          <View style={styles.statusChip}>
+          <View style={styles.statusChip} accessibilityLabel={`Status: ${profile.availabilityStatus}`}>
             <Text style={styles.statusChipText}>{profile.availabilityStatus}</Text>
           </View>
         )}
       </View>
 
       {permission === 'denied' && (
-        <View style={styles.permissionBanner}>
+        <View style={styles.permissionBanner} accessibilityRole="alert">
           <Text style={styles.permissionBannerText}>
             Location permission denied — showing an approximate area, and your position isn&apos;t
             being sent to the server.
@@ -259,6 +263,8 @@ export function DriverHomeMapScreen({ navigation }: Props) {
           style={styles.approvalBanner}
           onPress={() => navigation.navigate('ApplicationStatus')}
           testID="approval-banner"
+          accessibilityRole="button"
+          accessibilityLabel="Complete onboarding to go online — tap to check your application status"
         >
           <Text style={styles.approvalBannerText}>
             Complete onboarding to go online — tap to check your application status.
@@ -266,7 +272,11 @@ export function DriverHomeMapScreen({ navigation }: Props) {
         </Pressable>
       )}
 
-      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      {errorMessage && (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {errorMessage}
+        </Text>
+      )}
 
       <Pressable
         style={[
@@ -277,6 +287,9 @@ export function DriverHomeMapScreen({ navigation }: Props) {
         onPress={handleToggleAvailability}
         disabled={!isApproved || isTogglingAvailability}
         testID="toggle-availability-button"
+        accessibilityRole="button"
+        accessibilityLabel={isOnline ? 'Go offline' : 'Go online'}
+        accessibilityState={{ disabled: !isApproved || isTogglingAvailability, busy: isTogglingAvailability }}
       >
         {isTogglingAvailability ? (
           <ActivityIndicator color="#1c1917" />

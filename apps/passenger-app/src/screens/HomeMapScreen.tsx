@@ -102,6 +102,8 @@ export function HomeMapScreen({ navigation }: Props) {
           style={styles.profileButton}
           onPress={() => navigation.navigate('Profile')}
           testID="profile-button"
+          accessibilityRole="button"
+          accessibilityLabel="Profile"
         >
           <Text style={styles.profileButtonText}>👤</Text>
         </Pressable>
@@ -110,6 +112,8 @@ export function HomeMapScreen({ navigation }: Props) {
           style={styles.destinationBar}
           onPress={() => navigation.navigate('DestinationSearch')}
           testID="where-to-button"
+          accessibilityRole="button"
+          accessibilityLabel={destination ? `Destination: ${destination.label}` : 'Where to?'}
         >
           <Text style={styles.destinationBarText}>
             {destination ? destination.label : 'Where to?'}
@@ -120,13 +124,15 @@ export function HomeMapScreen({ navigation }: Props) {
           style={styles.notificationsButton}
           onPress={() => navigation.navigate('Notifications')}
           testID="notifications-button"
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
         >
           <Text style={styles.notificationsButtonText}>🔔</Text>
         </Pressable>
       </View>
 
       {permissionState === 'denied' && (
-        <View style={styles.permissionBanner}>
+        <View style={styles.permissionBanner} accessibilityRole="alert">
           <Text style={styles.permissionBannerText}>
             Location permission denied — drag the green pin to set your pickup point manually.
           </Text>
@@ -138,6 +144,8 @@ export function HomeMapScreen({ navigation }: Props) {
           style={styles.previewButton}
           onPress={() => navigation.navigate('RoutePreview')}
           testID="preview-route-button"
+          accessibilityRole="button"
+          accessibilityLabel="Preview route"
         >
           <Text style={styles.previewButtonText}>Preview route</Text>
         </Pressable>

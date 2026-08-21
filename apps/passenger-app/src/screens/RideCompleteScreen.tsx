@@ -185,13 +185,20 @@ export function RideCompleteScreen({ navigation }: Props) {
           <Text style={styles.failureReason}>{payment.failureReason}</Text>
         )}
 
-        {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+        {errorMessage && (
+          <Text style={styles.errorText} accessibilityRole="alert">
+            {errorMessage}
+          </Text>
+        )}
 
         {payment?.status === 'FAILED' && (
           <Pressable
             style={[styles.retryButton, isRetrying && styles.buttonDisabled]}
             disabled={isRetrying}
             onPress={() => void handleRetry()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry payment"
+            accessibilityState={{ disabled: isRetrying, busy: isRetrying }}
           >
             {isRetrying ? (
               <ActivityIndicator color="#0f172a" />
@@ -229,8 +236,13 @@ export function RideCompleteScreen({ navigation }: Props) {
               multiline
               editable={!isSubmittingRating}
               testID="rating-comment-input"
+              accessibilityLabel="Comment (optional)"
             />
-            {ratingError && <Text style={styles.errorText}>{ratingError}</Text>}
+            {ratingError && (
+              <Text style={styles.errorText} accessibilityRole="alert">
+                {ratingError}
+              </Text>
+            )}
             <Pressable
               style={[
                 styles.submitRatingButton,
@@ -239,6 +251,12 @@ export function RideCompleteScreen({ navigation }: Props) {
               disabled={selectedStars === 0 || isSubmittingRating}
               onPress={() => void handleSubmitRating()}
               testID="submit-rating-button"
+              accessibilityRole="button"
+              accessibilityLabel="Submit rating"
+              accessibilityState={{
+                disabled: selectedStars === 0 || isSubmittingRating,
+                busy: isSubmittingRating,
+              }}
             >
               {isSubmittingRating ? (
                 <ActivityIndicator color="#0f172a" />
@@ -250,7 +268,12 @@ export function RideCompleteScreen({ navigation }: Props) {
         )}
       </View>
 
-      <Pressable style={styles.doneButton} onPress={handleDone}>
+      <Pressable
+        style={styles.doneButton}
+        onPress={handleDone}
+        accessibilityRole="button"
+        accessibilityLabel="Done"
+      >
         <Text style={styles.doneButtonText}>Done</Text>
       </Pressable>
     </View>

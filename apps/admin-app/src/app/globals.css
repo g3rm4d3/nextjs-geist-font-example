@@ -1,8 +1,18 @@
 @import 'tailwindcss';
 
+/*
+ * Phase 23's brand identity, made explicit — these CSS variables mirror
+ * @rideshare/design-tokens' adminTheme exactly (see docs/design-system.md),
+ * even though most of this app's own styling reaches Tailwind's slate
+ * and amber utility classes directly rather than these variables. Both
+ * paths resolve to the same hex values by construction; --accent in
+ * particular gives the one color every screen's primary actions should
+ * converge on a name, not just a Tailwind class number.
+ */
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --accent: #f59e0b;
 }
 
 body {

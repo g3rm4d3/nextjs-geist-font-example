@@ -9,7 +9,14 @@ import { ApiClientError, listAdminDrivers } from '@/lib/apiClient';
 
 type StatusFilter = AdminDriverSummary['onboardingStatus'] | 'ALL';
 
-const STATUS_FILTERS: StatusFilter[] = ['ALL', 'DRAFT', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'];
+const STATUS_FILTERS: StatusFilter[] = [
+  'ALL',
+  'DRAFT',
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'SUSPENDED',
+];
 
 const STATUS_BADGE_STYLE: Record<AdminDriverSummary['onboardingStatus'], string> = {
   DRAFT: 'bg-slate-100 text-slate-600',
@@ -46,7 +53,9 @@ export default function DriversPage() {
         if (!cancelled) setDrivers(result);
       } catch (error) {
         if (!cancelled) {
-          setErrorMessage(error instanceof ApiClientError ? error.message : 'Could not load drivers.');
+          setErrorMessage(
+            error instanceof ApiClientError ? error.message : 'Could not load drivers.',
+          );
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -60,7 +69,11 @@ export default function DriversPage() {
   }, [accessToken, filter]);
 
   return (
-    <AdminShell title="Drivers" subtitle={`${drivers.length} driver(s)`} errorMessage={errorMessage}>
+    <AdminShell
+      title="Drivers"
+      subtitle={`${drivers.length} driver(s)`}
+      errorMessage={errorMessage}
+    >
       <div className="mb-4 flex items-center gap-2 text-sm">
         <span className="text-slate-500">Status:</span>
         {STATUS_FILTERS.map((option) => (
@@ -69,7 +82,9 @@ export default function DriversPage() {
             type="button"
             onClick={() => setFilter(option)}
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              filter === option ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              filter === option
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             {option}
@@ -82,42 +97,47 @@ export default function DriversPage() {
       ) : drivers.length === 0 ? (
         <p className="text-sm text-slate-500">No drivers match this filter.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Onboarding</th>
-              <th className="px-4 py-3">Availability</th>
-              <th className="px-4 py-3">Rating</th>
-              <th className="px-4 py-3">Rides</th>
-            </tr>
-          </thead>
-          <tbody>
-            {drivers.map((driver) => (
-              <tr key={driver.id} className="border-t border-slate-100">
-                <td className="px-4 py-3">
-                  <Link href={`/drivers/${driver.id}`} className="font-medium text-slate-900 hover:underline">
-                    {driver.firstName} {driver.lastName}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{driver.email}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_BADGE_STYLE[driver.onboardingStatus]}`}
-                  >
-                    {driver.onboardingStatus}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{driver.availabilityStatus}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {driver.averageRating !== null ? `★ ${driver.averageRating.toFixed(2)}` : '—'}
-                </td>
-                <td className="px-4 py-3 text-slate-600">{driver.totalRides}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Onboarding</th>
+                <th className="px-4 py-3">Availability</th>
+                <th className="px-4 py-3">Rating</th>
+                <th className="px-4 py-3">Rides</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {drivers.map((driver) => (
+                <tr key={driver.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/drivers/${driver.id}`}
+                      className="font-medium text-slate-900 hover:underline"
+                    >
+                      {driver.firstName} {driver.lastName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{driver.email}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_BADGE_STYLE[driver.onboardingStatus]}`}
+                    >
+                      {driver.onboardingStatus}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{driver.availabilityStatus}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {driver.averageRating !== null ? `★ ${driver.averageRating.toFixed(2)}` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{driver.totalRides}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

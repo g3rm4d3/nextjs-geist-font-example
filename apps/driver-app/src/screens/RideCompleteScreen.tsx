@@ -87,7 +87,12 @@ export function RideCompleteScreen({ navigation }: Props) {
     return (
       <View style={styles.centered}>
         <Text style={styles.title}>No ride to show</Text>
-        <Pressable style={styles.button} onPress={() => navigation.navigate('DriverHomeMap')}>
+        <Pressable
+          style={styles.button}
+          onPress={() => navigation.navigate('DriverHomeMap')}
+          accessibilityRole="button"
+          accessibilityLabel="Back to map"
+        >
           <Text style={styles.buttonText}>Back to map</Text>
         </Pressable>
       </View>
@@ -149,8 +154,13 @@ export function RideCompleteScreen({ navigation }: Props) {
               multiline
               editable={!isSubmittingRating}
               testID="rating-comment-input"
+              accessibilityLabel="Comment (optional)"
             />
-            {ratingError && <Text style={styles.errorText}>{ratingError}</Text>}
+            {ratingError && (
+              <Text style={styles.errorText} accessibilityRole="alert">
+                {ratingError}
+              </Text>
+            )}
             <Pressable
               style={[
                 styles.submitRatingButton,
@@ -159,6 +169,12 @@ export function RideCompleteScreen({ navigation }: Props) {
               disabled={selectedStars === 0 || isSubmittingRating}
               onPress={() => void handleSubmitRating()}
               testID="submit-rating-button"
+              accessibilityRole="button"
+              accessibilityLabel="Submit rating"
+              accessibilityState={{
+                disabled: selectedStars === 0 || isSubmittingRating,
+                busy: isSubmittingRating,
+              }}
             >
               {isSubmittingRating ? (
                 <ActivityIndicator color="#1c1917" />
@@ -170,7 +186,13 @@ export function RideCompleteScreen({ navigation }: Props) {
         )}
       </View>
 
-      <Pressable style={styles.button} onPress={handleDone} testID="done-button">
+      <Pressable
+        style={styles.button}
+        onPress={handleDone}
+        testID="done-button"
+        accessibilityRole="button"
+        accessibilityLabel="Done"
+      >
         <Text style={styles.buttonText}>Done</Text>
       </Pressable>
     </View>

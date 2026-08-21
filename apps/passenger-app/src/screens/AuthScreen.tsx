@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ApiClientError } from '../lib/apiClient';
 import { useAuth } from '../context/AuthContext';
+import { minTouchTarget } from '../theme';
 
 type Mode = 'login' | 'register';
 
@@ -69,6 +70,7 @@ export function AuthScreen() {
               onChangeText={setFirstName}
               autoCapitalize="words"
               testID="firstName-input"
+              accessibilityLabel="First name"
             />
             <TextInput
               style={styles.input}
@@ -78,6 +80,7 @@ export function AuthScreen() {
               onChangeText={setLastName}
               autoCapitalize="words"
               testID="lastName-input"
+              accessibilityLabel="Last name"
             />
           </>
         )}
@@ -92,6 +95,7 @@ export function AuthScreen() {
           autoComplete="email"
           keyboardType="email-address"
           testID="email-input"
+          accessibilityLabel="Email address"
         />
         <TextInput
           style={styles.input}
@@ -102,10 +106,11 @@ export function AuthScreen() {
           secureTextEntry
           autoCapitalize="none"
           testID="password-input"
+          accessibilityLabel="Password"
         />
 
         {errorMessage && (
-          <Text style={styles.error} testID="auth-error">
+          <Text style={styles.error} testID="auth-error" accessibilityRole="alert">
             {errorMessage}
           </Text>
         )}
@@ -115,6 +120,9 @@ export function AuthScreen() {
           onPress={handleSubmit}
           disabled={isSubmitting}
           testID="submit-button"
+          accessibilityRole="button"
+          accessibilityLabel={isRegister ? 'Sign up' : 'Log in'}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#0f172a" />
@@ -128,6 +136,9 @@ export function AuthScreen() {
             setMode(isRegister ? 'login' : 'register');
             setErrorMessage(null);
           }}
+          accessibilityRole="button"
+          accessibilityLabel={isRegister ? 'Switch to log in' : 'Switch to sign up'}
+          style={styles.toggleButton}
         >
           <Text style={styles.toggleText}>
             {isRegister ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
@@ -178,7 +189,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbbf24',
     borderRadius: 8,
     paddingVertical: 14,
+    minHeight: minTouchTarget,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
     marginBottom: 16,
   },
@@ -189,6 +202,10 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontSize: 16,
     fontWeight: '700',
+  },
+  toggleButton: {
+    minHeight: minTouchTarget,
+    justifyContent: 'center',
   },
   toggleText: {
     color: '#94a3b8',

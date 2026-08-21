@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ApiClientError } from '../lib/apiClient';
 import { useAuth } from '../context/AuthContext';
+import { minTouchTarget } from '../theme';
 
 type Mode = 'login' | 'register';
 
@@ -71,6 +72,7 @@ export function AuthScreen() {
               onChangeText={setFirstName}
               autoCapitalize="words"
               testID="firstName-input"
+              accessibilityLabel="First name"
             />
             <TextInput
               style={styles.input}
@@ -80,6 +82,7 @@ export function AuthScreen() {
               onChangeText={setLastName}
               autoCapitalize="words"
               testID="lastName-input"
+              accessibilityLabel="Last name"
             />
             <TextInput
               style={styles.input}
@@ -89,6 +92,7 @@ export function AuthScreen() {
               onChangeText={setLicenseNumber}
               autoCapitalize="characters"
               testID="licenseNumber-input"
+              accessibilityLabel="Driver's license number"
             />
             <TextInput
               style={styles.input}
@@ -99,6 +103,7 @@ export function AuthScreen() {
               autoCapitalize="characters"
               maxLength={2}
               testID="licenseState-input"
+              accessibilityLabel="License state"
             />
           </>
         )}
@@ -113,6 +118,7 @@ export function AuthScreen() {
           autoComplete="email"
           keyboardType="email-address"
           testID="email-input"
+          accessibilityLabel="Email address"
         />
         <TextInput
           style={styles.input}
@@ -123,10 +129,11 @@ export function AuthScreen() {
           secureTextEntry
           autoCapitalize="none"
           testID="password-input"
+          accessibilityLabel="Password"
         />
 
         {errorMessage && (
-          <Text style={styles.error} testID="auth-error">
+          <Text style={styles.error} testID="auth-error" accessibilityRole="alert">
             {errorMessage}
           </Text>
         )}
@@ -136,6 +143,9 @@ export function AuthScreen() {
           onPress={handleSubmit}
           disabled={isSubmitting}
           testID="submit-button"
+          accessibilityRole="button"
+          accessibilityLabel={isRegister ? 'Apply' : 'Log in'}
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#1c1917" />
@@ -149,6 +159,9 @@ export function AuthScreen() {
             setMode(isRegister ? 'login' : 'register');
             setErrorMessage(null);
           }}
+          accessibilityRole="button"
+          accessibilityLabel={isRegister ? 'Switch to log in' : 'Switch to apply to drive'}
+          style={styles.toggleButton}
         >
           <Text style={styles.toggleText}>
             {isRegister
@@ -201,7 +214,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbbf24',
     borderRadius: 8,
     paddingVertical: 14,
+    minHeight: minTouchTarget,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
     marginBottom: 16,
   },
@@ -212,6 +227,10 @@ const styles = StyleSheet.create({
     color: '#1c1917',
     fontSize: 16,
     fontWeight: '700',
+  },
+  toggleButton: {
+    minHeight: minTouchTarget,
+    justifyContent: 'center',
   },
   toggleText: {
     color: '#a8a29e',

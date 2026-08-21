@@ -41,57 +41,63 @@ export default function PassengersPage() {
   }, [accessToken]);
 
   return (
-    <AdminShell title="Passengers" subtitle={`${passengers.length} account(s)`} errorMessage={errorMessage}>
+    <AdminShell
+      title="Passengers"
+      subtitle={`${passengers.length} account(s)`}
+      errorMessage={errorMessage}
+    >
       {isLoading && passengers.length === 0 ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : passengers.length === 0 ? (
         <p className="text-sm text-slate-500">No passengers yet.</p>
       ) : (
-        <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
-          <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Rating</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {passengers.map((passenger) => (
-              <tr key={passenger.id} className="border-t border-slate-100">
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/passengers/${passenger.id}`}
-                    className="font-medium text-slate-900 hover:underline"
-                  >
-                    {passenger.firstName} {passenger.lastName}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{passenger.email}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {passenger.averageRating !== null
-                    ? `★ ${passenger.averageRating.toFixed(2)} (${passenger.ratingsCount})`
-                    : '—'}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      passenger.isActive
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {passenger.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-500">
-                  {new Date(passenger.createdAt).toLocaleDateString()}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-left text-sm shadow-sm">
+            <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Rating</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Joined</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {passengers.map((passenger) => (
+                <tr key={passenger.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/passengers/${passenger.id}`}
+                      className="font-medium text-slate-900 hover:underline"
+                    >
+                      {passenger.firstName} {passenger.lastName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{passenger.email}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {passenger.averageRating !== null
+                      ? `★ ${passenger.averageRating.toFixed(2)} (${passenger.ratingsCount})`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        passenger.isActive
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {passenger.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {new Date(passenger.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

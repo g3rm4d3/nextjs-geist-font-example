@@ -97,11 +97,15 @@ export function RequestRideScreen({ navigation }: Props) {
 
       {errorMessage && !isSubmitting && (
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text style={styles.errorText} accessibilityRole="alert">
+            {errorMessage}
+          </Text>
           <Pressable
             style={styles.retryButton}
             onPress={() => setAttempt((n) => n + 1)}
             testID="retry-request-button"
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
           >
             <Text style={styles.retryButtonText}>Try again</Text>
           </Pressable>
