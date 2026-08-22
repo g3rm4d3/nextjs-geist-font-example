@@ -11,15 +11,67 @@ import { pool } from '../db/pool';
 const app = createApp();
 
 /**
- * PHASE 21 — "Critical E2E." The spec spells out one literal end-to-end
- * story:
+ * PHASE 21/24 — "Critical E2E" / "Stage 1 Final Validation." Two phases,
+ * one test: Phase 21 asked for one literal end-to-end story (passenger
+ * registers -> ... -> admin inspects); Phase 24's own 24-step "required
+ * scenario" is the same story again, just numbered and slightly more
+ * granular (it splits out "passenger receives driver information" and
+ * "platform TEST revenue is recorded" as their own steps, both added to
+ * this file in Phase 24 rather than duplicated into a second test file).
+ * Every one of the 24 steps below maps onto a concrete assertion in this
+ * one continuous flow:
  *
- *   Passenger registers -> chooses pickup -> chooses destination ->
- *   receives estimate -> requests ride -> driver receives offer ->
- *   driver accepts -> driver travels to pickup -> driver arrives ->
- *   ride starts -> location updates -> ride completes -> TEST payment
- *   succeeds -> driver earnings created -> ratings enabled -> Admin can
- *   inspect operation.
+ *   1.  Passenger opens Passenger App        — client-side; out of scope for
+ *                                               a server-side test by nature.
+ *   2.  Passenger authenticates              — POST /auth/passengers/register
+ *   3.  Passenger selects pickup             — the `pickup` coordinate (see
+ *                                               note below)
+ *   4.  Passenger selects destination        — the `destination` coordinate
+ *   5.  Backend calculates estimate          — POST /pricing/estimate
+ *   6.  Passenger requests ride              — POST /rides
+ *   7.  Matching Engine searches drivers     — implicit: startMatching runs
+ *                                               synchronously inside POST
+ *                                               /rides; the very next step
+ *                                               (an offer existing) is its
+ *                                               observable proof
+ *   8.  Driver receives offer (separate app) — GET /drivers/me/offer, using
+ *                                               the *driver's own* token —
+ *                                               never the passenger's,
+ *                                               proving these are genuinely
+ *                                               separate, role-scoped
+ *                                               sessions, not shared state
+ *   9.  Driver accepts                       — POST /drivers/me/offer/:id/
+ *                                               accept
+ *   10. Passenger receives driver info       — GET /rides/:id/driver,
+ *                                               immediately after acceptance
+ *   11. Driver navigates to pickup           — POST .../en-route
+ *   12. Passenger sees driver location       — GET /rides/:id/driver during
+ *                                               travel (firstName) and again
+ *                                               mid-ride (location non-null)
+ *   13. Driver marks arrival                 — POST .../arrived
+ *   14. Passenger boards                     — POST .../picked-up
+ *                                               (PASSENGER_ONBOARD)
+ *   15. Driver starts ride                   — POST .../start (IN_PROGRESS)
+ *   16. Realtime tracking operates           — two more location pings while
+ *                                               IN_PROGRESS, then confirmed
+ *                                               visible via GET .../driver
+ *   17. Driver completes ride                — POST .../complete
+ *   18. Backend calculates final TEST fare   — `finalFareCents` on that same
+ *                                               response
+ *   19. Stripe TEST payment processes        — GET /rides/:id/payment,
+ *                                               status SUCCEEDED
+ *   20. Driver TEST earnings are recorded    — GET /drivers/me/earnings/
+ *                                               summary + history
+ *   21. Platform TEST revenue is recorded    — GET /admin/revenue
+ *   22. Passenger rates driver               — POST /rides/:id/rating
+ *   23. Driver rates passenger               — POST /drivers/me/rides/:id/
+ *                                               rating
+ *   24. Admin App displays entire operation  — GET /admin/rides/:id,
+ *                                               /admin/payments,
+ *                                               /admin/ratings, /admin/
+ *                                               revenue, using a real ADMIN
+ *                                               session distinct from both
+ *                                               the passenger's and driver's
  *
  * Every one of these steps already has its own dedicated, focused test
  * coverage scattered across this directory (rides.test.ts,
@@ -30,8 +82,11 @@ const app = createApp();
  * one real ride, so a regression that breaks the seam between two
  * phases (e.g. a field earlier phases relied on getting silently
  * renamed) fails here even if each side's own unit-scoped test still
- * passes in isolation. "All critical tests must pass" (the spec's own
- * words) is this file, specifically.
+ * passes in isolation. "All critical tests must pass" (Phase 21's own
+ * words) is this file, specifically — and it is what Phase 24's
+ * required demonstration (see docs/stage1-demonstration.md) points to
+ * as its evidence, rather than a second, hand-run walkthrough of the
+ * same story.
  *
  * "Chooses pickup" / "chooses destination" have no server-side step of
  * their own — that's a client-side map interaction (see
@@ -39,9 +94,7 @@ const app = createApp();
  * produces the coordinates POST /pricing/estimate and POST /rides both
  * take as input; this test represents that choice as the literal
  * coordinate pair a passenger client would have already produced by the
- * time it calls either endpoint. "Ride starts" is Section 9's
- * PASSENGER_ONBOARD -> IN_PROGRESS pair (picked-up, then start) — both
- * are exercised, matching the real driver-app button sequence.
+ * time it calls either endpoint.
  */
 
 const PRICING_CONFIG = {
@@ -191,6 +244,20 @@ describe('Critical E2E path (Phase 21)', () => {
         .set('Authorization', `Bearer ${driverToken}`);
       expect(acceptResponse.status).toBe(200);
       expect(acceptResponse.body.data.status).toBe('DRIVER_ASSIGNED');
+
+      // --- Step: passenger receives driver information ---
+      // Available the instant a ride is DRIVER_ASSIGNED (rideTrackingService
+      // .getAssignedDriverInfo), not just once the driver starts moving —
+      // asserted here, right after acceptance, as its own checkpoint,
+      // distinct from "passenger sees driver location" below (step 11's
+      // location pings), which is about the driver's *position* updating,
+      // not their identity first becoming visible.
+      const assignedDriverResponse = await request(app)
+        .get(`/rides/${rideId}/driver`)
+        .set('Authorization', `Bearer ${passengerToken}`);
+      expect(assignedDriverResponse.status).toBe(200);
+      expect(assignedDriverResponse.body.data).not.toBeNull();
+      expect(assignedDriverResponse.body.data.firstName).toBe('Critical');
 
       const driverAuth = { Authorization: `Bearer ${driverToken}` };
 
@@ -345,6 +412,21 @@ describe('Critical E2E path (Phase 21)', () => {
       expect(
         (adminRatingsResponse.body.data as Array<{ rideId: string }>).filter((row) => row.rideId === rideId),
       ).toHaveLength(2); // both directions
+
+      // --- Step: platform TEST revenue is recorded ---
+      // GET /admin/revenue (Phase 12) is the platform-wide counterpart to
+      // the driver's own earnings/summary asserted above — same
+      // today/week/month/all-time shape, but this ride's platform
+      // commission specifically. Always Stripe TEST MODE money (see the
+      // route's own doc comment) — a count of this fictional test ride,
+      // never real revenue.
+      const adminRevenueResponse = await request(app)
+        .get('/admin/revenue')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(adminRevenueResponse.status).toBe(200);
+      expect(adminRevenueResponse.body.data.today.rideCount).toBeGreaterThanOrEqual(1);
+      expect(adminRevenueResponse.body.data.today.platformCommissionCents).toBeGreaterThan(0);
+      expect(adminRevenueResponse.body.data.allTime.rideCount).toBeGreaterThanOrEqual(1);
     },
     30_000,
   );

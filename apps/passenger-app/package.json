@@ -10,6 +10,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build": "expo export -p android -p ios --output-dir dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest"
